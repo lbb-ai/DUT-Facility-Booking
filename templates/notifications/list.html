@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-bell me-2"></i>Notifications</span>
+        <span class="small text-muted">{{ notifications|length }} total</span>
+      </div>
+      <div class="card-body p-0">
+        {% for n in notifications %}
+        <div class="d-flex gap-3 p-3 border-bottom
+                    {% if not n.is_read %}{% endif %}"
+             style="background:{% if not n.is_read %}#fafbff{% else %}#fff{% endif %}">
+
+          <!-- Icon -->
+          <div class="flex-shrink-0 mt-1">
+            <div class="rounded-circle d-flex align-items-center justify-content-center"
+                 style="width:36px;height:36px;
+                   background:{% if n.type=='success' %}#d1fae5{% elif n.type=='danger' %}#fde8e8{% elif n.type=='warning' %}#fef3c7{% else %}#e8f0fe{% endif %}">
+              <i class="bi bi-{% if n.type=='success' %}check-circle{% elif n.type=='danger' %}x-circle{% elif n.type=='warning' %}exclamation-triangle{% else %}info-circle{% endif %}"
+                 style="font-size:.85rem;
+                   color:{% if n.type=='success' %}#065f46{% elif n.type=='danger' %}#9b1c1c{% elif n.type=='warning' %}#92400e{% else %}#1a3a5c{% endif %}"></i>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-grow-1">
+            <div class="small" style="color:#1a3a5c;line-height:1.5">{{ n.message }}</div>
+            <div class="text-muted mt-1" style="font-size:.72rem;font-family:'JetBrains Mono',monospace">
+              {{ n.created_at.strftime('%d %b %Y at %H:%M') }}
+            </div>
+          </div>
+
+          <!-- Link -->
+          {% if n.booking_id %}
+          <div class="flex-shrink-0">
+            <a href="{{ url_for('bookings.booking_detail', booking_id=n.booking_id) }}"
+               class="btn btn-sm btn-outline-secondary" style="font-size:.7rem;border-radius:6px">
+              View
+            </a>
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-bell-slash d-block mb-2" style="font-size:2.5rem;opacity:.3"></i>
+          <div class="small">No notifications yet.</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

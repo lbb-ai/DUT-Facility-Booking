@@ -1,0 +1,278 @@
+{% extends 'base.html' %}
+{% block title %}My Bookings{% endblock %}
+{% block page_title %}My Bookings{% endblock %}
+
+{% block extra_css %}
+<style>
+  .booking-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #fff;
+    padding: 0;
+    overflow: hidden;
+    transition: box-shadow .2s, transform .15s;
+  }
+  .booking-card:hover {
+    box-shadow: 0 6px 24px rgba(26,58,92,.1);
+    transform: translateY(-1px);
+  }
+  .booking-card .status-bar {
+    height: 4px;
+    width: 100%;
+  }
+  .status-bar-pending   { background: #f59e0b; }
+  .status-bar-approved  { background: #22c55e; }
+  .status-bar-rejected  { background: #ef4444; }
+  .status-bar-cancelled { background: #94a3b8; }
+  .status-bar-draft     { background: #38bdf8; }
+  .status-bar-paid      { background: #8b5cf6; }
+  .booking-body { padding: 16px 18px; }
+  .meta-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #f0f4f8; color: #475569;
+    font-size: .72rem; padding: 3px 9px; border-radius: 6px;
+    font-weight: 500;
+  }
+  .filter-pill {
+    border-radius: 100px; font-size: .78rem; padding: 5px 14px;
+    border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+    cursor: pointer; transition: all .15s; font-weight: 600;
+    text-decoration: none; display: inline-block;
+  }
+  .filter-pill:hover   { border-color: #1a3a5c; color: #1a3a5c; }
+  .filter-pill.active  { background: #1a3a5c; border-color: #1a3a5c; color: #fff; }
+  .empty-state { text-align: center; padding: 4rem 2rem; color: #94a3b8; }
+  .empty-state i { font-size: 3rem; opacity: .2; display: block; margin-bottom: 1rem; }
+  .stat-strip {
+    display: flex; gap: 2px; margin-bottom: 1.25rem; flex-wrap: wrap;
+  }
+  .stat-strip-item {
+    flex: 1; min-width: 70px; background: #fff; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 10px 12px; text-align: center;
+  }
+  .stat-strip-item .val { font-size: 1.3rem; font-weight: 800; color: #1a3a5c; line-height:1; font-family: 'JetBrains Mono', monospace; }
+  .stat-strip-item .lbl { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; font-weight: 700; margin-top: 3px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Stats strip ────────────────────────────────────────── -->
+{% set total     = bookings|length %}
+{% set pending   = bookings|selectattr('status','eq','pending')  |list|length %}
+{% set approved  = bookings|selectattr('status','eq','approved') |list|length %}
+{% set rejected  = bookings|selectattr('status','eq','rejected') |list|length %}
+{% set cancelled = bookings|selectattr('status','eq','cancelled')|list|length %}
+
+<div class="stat-strip">
+  <div class="stat-strip-item">
+    <div class="val">{{ total }}</div>
+    <div class="lbl">Total</div>
+  </div>
+  <div class="stat-strip-item">
+    <div class="val" style="color:#f59e0b">{{ pending }}</div>
+    <div class="lbl">Pending</div>
+  </div>
+  <div class="stat-strip-item">
+    <div class="val" style="color:#22c55e">{{ approved }}</div>
+    <div class="lbl">Approved</div>
+  </div>
+  <div class="stat-strip-item">
+    <div class="val" style="color:#ef4444">{{ rejected }}</div>
+    <div class="lbl">Rejected</div>
+  </div>
+  <div class="stat-strip-item">
+    <div class="val" style="color:#94a3b8">{{ cancelled }}</div>
+    <div class="lbl">Cancelled</div>
+  </div>
+</div>
+
+<!-- ── Filter + action bar ────────────────────────────────── -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="d-flex flex-wrap gap-2" id="filterBar">
+    <a href="#" class="filter-pill active" onclick="filterCards('all',this)">All</a>
+    <a href="#" class="filter-pill" onclick="filterCards('pending',this)">Pending</a>
+    <a href="#" class="filter-pill" onclick="filterCards('approved',this)">Approved</a>
+    <a href="#" class="filter-pill" onclick="filterCards('rejected',this)">Rejected</a>
+    <a href="#" class="filter-pill" onclick="filterCards('cancelled',this)">Cancelled</a>
+    <a href="#" class="filter-pill" onclick="filterCards('draft',this)">Drafts</a>
+  </div>
+  <a href="{{ url_for('bookings.create_booking') }}"
+     class="btn btn-accent btn-sm" style="border-radius:8px">
+    <i class="bi bi-plus me-1"></i>New Booking
+  </a>
+</div>
+
+<!-- ── Booking cards ──────────────────────────────────────── -->
+{% if bookings %}
+<div class="row g-3" id="cardGrid">
+  {% for b in bookings %}
+  <div class="col-md-6 col-xl-4 booking-item" data-status="{{ b.status }}">
+    <div class="booking-card h-100">
+      <!-- Coloured top bar -->
+      <div class="status-bar status-bar-{{ b.status }}"></div>
+
+      <div class="booking-body">
+        <!-- Title + status badge -->
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="fw-700" style="color:#1a3a5c;font-size:.92rem;max-width:200px;line-height:1.3">
+            {{ b.title }}
+          </div>
+          <span class="badge rounded-pill ms-2 flex-shrink-0"
+                style="font-size:.68rem;padding:4px 10px;
+                  {% if b.status == 'approved' %}background:#d1fae5;color:#065f46
+                  {% elif b.status == 'pending' %}background:#fef3c7;color:#92400e
+                  {% elif b.status == 'rejected' %}background:#fde8e8;color:#9b1c1c
+                  {% elif b.status == 'cancelled' %}background:#f3f4f6;color:#374151
+                  {% elif b.status == 'paid' %}background:#ede9fe;color:#5b21b6
+                  {% else %}background:#e0f2fe;color:#075985{% endif %}">
+            {% if b.status == 'paid' %}💳 Paid
+            {% else %}{{ b.status|title }}{% endif %}
+          </span>
+        </div>
+
+        <!-- Facility + campus -->
+        <div class="small text-muted mb-3" style="font-size:.78rem">
+          <i class="bi bi-building me-1"></i>{{ b.facility.name }}
+          {% if b.facility.campus %}
+          <span class="ms-1" style="color:#94a3b8">· {{ b.facility.campus }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Meta chips -->
+        <div class="d-flex flex-wrap gap-1 mb-3">
+          <span class="meta-chip">
+            <i class="bi bi-calendar3" style="font-size:.65rem"></i>
+            {{ b.booking_date.strftime('%d %b %Y') }}
+          </span>
+          <span class="meta-chip" style="font-family:'JetBrains Mono',monospace">
+            <i class="bi bi-clock" style="font-size:.65rem"></i>
+            {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}
+          </span>
+          <span class="meta-chip">
+            <i class="bi bi-people" style="font-size:.65rem"></i>
+            {{ b.attendees }}
+          </span>
+          {% if b.is_recurring %}
+          <span class="meta-chip" style="background:#fef3c7;color:#92400e">
+            <i class="bi bi-arrow-repeat" style="font-size:.65rem"></i>
+            Recurring
+          </span>
+          {% endif %}
+          {% if b.attended_at %}
+          <span class="meta-chip" style="background:#d1fae5;color:#065f46;font-weight:700">
+            <i class="bi bi-check-circle-fill" style="font-size:.65rem"></i>
+            Attended {{ b.attended_at.strftime('%H:%M') }}
+          </span>
+          {% elif b.status in ['approved','paid'] and b.booking_date == today_date and b.qr_token %}
+          <span class="meta-chip" style="background:#fef3c7;color:#92400e">
+            <i class="bi bi-qr-code" style="font-size:.65rem"></i>
+            QR Ready
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- Admin notes -->
+        {% if b.admin_notes %}
+        <div class="small mb-3 p-2 rounded"
+             style="background:#f8fafc;border-left:3px solid
+               {% if b.status == 'approved' %}#22c55e
+               {% elif b.status == 'rejected' %}#ef4444
+               {% else %}#94a3b8{% endif %};
+               font-size:.76rem;color:#475569">
+          <i class="bi bi-chat-left-text me-1"></i>{{ b.admin_notes }}
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 flex-wrap mt-auto">
+          <a href="{{ url_for('bookings.booking_detail', booking_id=b.id) }}"
+             class="btn btn-sm btn-outline-primary flex-grow-1"
+             style="border-radius:8px;font-size:.75rem">
+            <i class="bi bi-eye me-1"></i>View
+          </a>
+
+          {% if b.status == 'draft' %}
+          <form method="POST" action="{{ url_for('bookings.submit_draft', booking_id=b.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-primary"
+                    style="border-radius:8px;font-size:.75rem">
+              <i class="bi bi-send me-1"></i>Submit
+            </button>
+          </form>
+          {% endif %}
+
+          {% if b.status in ['pending', 'approved', 'draft'] %}
+          <form method="POST" action="{{ url_for('bookings.cancel_booking', booking_id=b.id) }}"
+                onsubmit="return confirm('Cancel this booking?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-sm btn-outline-danger"
+                    style="border-radius:8px;font-size:.75rem">
+              <i class="bi bi-x-circle me-1"></i>Cancel
+            </button>
+          </form>
+          {% endif %}
+
+          <!-- Reschedule: future, not attended, correct status -->
+          {% if not b.attended_at and b.booking_date > today_date %}
+            {% if (current_user.is_external() and b.status == 'paid')
+                  or (not current_user.is_external() and b.status in ['approved', 'pending']) %}
+          <a href="{{ url_for('bookings.reschedule_booking', booking_id=b.id) }}"
+             class="btn btn-sm btn-outline-warning"
+             style="border-radius:8px;font-size:.75rem">
+            <i class="bi bi-calendar-event me-1"></i>Reschedule
+          </a>
+            {% endif %}
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- No results after filter -->
+<div id="noResults" class="empty-state d-none">
+  <i class="bi bi-filter"></i>
+  <div class="fw-600 mb-1" style="color:#475569">No bookings match this filter</div>
+  <div class="small">Try selecting a different status above.</div>
+</div>
+
+{% else %}
+<!-- Empty state -->
+<div class="card empty-state">
+  <i class="bi bi-calendar3"></i>
+  <div class="fw-700 mb-1" style="color:#475569;font-size:1rem">No bookings yet</div>
+  <div class="small mb-3">Book a lab, hall, sports facility or lecture room.</div>
+  <a href="{{ url_for('bookings.create_booking') }}"
+     class="btn btn-accent px-4" style="border-radius:8px">
+    <i class="bi bi-plus me-2"></i>Make Your First Booking
+  </a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterCards(status, btn) {
+  // Update active pill
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+
+  const items   = document.querySelectorAll('.booking-item');
+  let   visible = 0;
+
+  items.forEach(item => {
+    const match = status === 'all' || item.dataset.status === status;
+    item.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+
+  const noResults = document.getElementById('noResults');
+  if (noResults) noResults.classList.toggle('d-none', visible > 0);
+  return false;
+}
+</script>
+{% endblock %}

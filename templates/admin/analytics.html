@@ -1,0 +1,421 @@
+{% extends 'base.html' %}
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Analytics Dashboard{% endblock %}
+
+{% block extra_css %}
+<style>
+  .kpi-card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 20px;
+    border: 1px solid #e2e8f0;
+    height: 100%;
+  }
+  .kpi-label {
+    font-size: .6rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #94a3b8;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .kpi-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    color: #1a3a5c;
+    line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .kpi-sub {
+    font-size: .72rem;
+    color: #94a3b8;
+    margin-top: 4px;
+  }
+  .kpi-icon {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .section-label {
+    font-size: .62rem;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    color: #94a3b8;
+    font-weight: 700;
+    margin-bottom: 12px;
+    font-family: monospace;
+  }
+  .chart-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+  }
+  .star-filled { color: #e8a020; }
+  .star-empty  { color: #e2e8f0; }
+  .review-card {
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    background: #fafbfc;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── KPI Row ─────────────────────────────────────────────── -->
+<div class="section-label">Key Performance Indicators</div>
+<div class="row g-3 mb-4">
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Total Bookings</div>
+          <div class="kpi-value">{{ total_bookings }}</div>
+        </div>
+        <div class="kpi-icon" style="background:#e8f0fe">📋</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Approval Rate</div>
+          <div class="kpi-value" style="color:#28a745">{{ approval_rate }}%</div>
+          <div class="kpi-sub">{{ total_approved }} approved</div>
+        </div>
+        <div class="kpi-icon" style="background:#d1fae5">✅</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Pending Review</div>
+          <div class="kpi-value" style="color:#e8a020">{{ total_pending }}</div>
+          <div class="kpi-sub">Awaiting action</div>
+        </div>
+        <div class="kpi-icon" style="background:#fef3c7">⏳</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Registered Users</div>
+          <div class="kpi-value">{{ total_users }}</div>
+          <div class="kpi-sub">{{ total_facilities }} facilities</div>
+        </div>
+        <div class="kpi-icon" style="background:#f0f4ff">👥</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Rejected</div>
+          <div class="kpi-value" style="color:#dc3545">{{ total_rejected }}</div>
+        </div>
+        <div class="kpi-icon" style="background:#fde8e8">❌</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Cancelled</div>
+          <div class="kpi-value" style="color:#6c757d">{{ total_cancelled }}</div>
+        </div>
+        <div class="kpi-icon" style="background:#f1f5f9">🚫</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Avg. Rating</div>
+          {% if avg_overall_rating %}
+          <div class="kpi-value" style="color:#e8a020">{{ avg_overall_rating }}</div>
+          <div class="kpi-sub">out of 5 stars</div>
+          {% else %}
+          <div class="kpi-value" style="color:#cbd5e1">—</div>
+          <div class="kpi-sub">No ratings yet</div>
+          {% endif %}
+        </div>
+        <div class="kpi-icon" style="background:#fef3c7">⭐</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-6 col-md-3">
+    <div class="kpi-card">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="kpi-label">Active Facilities</div>
+          <div class="kpi-value">{{ total_facilities }}</div>
+          <div class="kpi-sub">Bookable venues</div>
+        </div>
+        <div class="kpi-icon" style="background:#d1fae5">🏫</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Charts Row 1 ───────────────────────────────────────── -->
+<div class="section-label">Activity Charts</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="chart-card">
+      <div class="section-label mb-3">Daily Booking Activity — Last 30 Days</div>
+      <canvas id="chartDaily" height="100"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card">
+      <div class="section-label mb-3">Booking Status Breakdown</div>
+      <canvas id="chartStatus" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ── Charts Row 2 ───────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-lg-4">
+    <div class="chart-card">
+      <div class="section-label mb-3">Peak Booking Hours</div>
+      <canvas id="chartPeak" height="200"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card">
+      <div class="section-label mb-3">Bookings by Day of Week</div>
+      <canvas id="chartDow" height="200"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="chart-card">
+      <div class="section-label mb-3">Bookings by Facility Type</div>
+      <canvas id="chartType" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ── Facility Utilisation ───────────────────────────────── -->
+<div class="section-label">Facility Utilisation — Last 90 Days</div>
+<div class="card mb-4">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="small ps-3">Facility</th>
+            <th class="small">Type</th>
+            <th class="small text-end">Bookings</th>
+            <th class="small text-end">Hours Used</th>
+            <th class="small text-end pe-3">Rating</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for f in facility_stats %}
+        <tr>
+          <td class="small fw-600 ps-3" style="color:#1a3a5c">{{ f.name }}</td>
+          <td>
+            <span class="badge rounded-pill px-2 py-1"
+                  style="font-size:.65rem;
+                    {% if f.type == 'lab' %}background:#e8f0fe;color:#1a3a5c
+                    {% elif f.type == 'hall' %}background:#fef3c7;color:#92400e
+                    {% elif f.type == 'sports' %}background:#d1fae5;color:#065f46
+                    {% else %}background:#fde8e8;color:#9b1c1c{% endif %}">
+              {{ f.type|replace('_',' ')|title }}
+            </span>
+          </td>
+          <td class="small text-end fw-700" style="color:#1a3a5c">{{ f.bookings }}</td>
+          <td class="small text-end text-muted">{{ f.hours }}h</td>
+          <td class="small text-end pe-3">
+            {% if f.avg_rating %}
+            <span style="color:#e8a020">★</span>
+            <span class="fw-600">{{ f.avg_rating }}</span>
+            <span class="text-muted" style="font-size:.7rem">({{ f.rating_count }})</span>
+            {% else %}
+            <span class="text-muted" style="font-size:.7rem">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="text-center py-4 text-muted small">No data yet.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ── Top Bookers + Recent Reviews ──────────────────────── -->
+<div class="row g-3">
+  <div class="col-lg-6">
+    <div class="section-label">Top Bookers (Approved Bookings)</div>
+    <div class="card">
+      <div class="card-body p-0">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="small ps-3">#</th>
+              <th class="small">Name</th>
+              <th class="small">Role</th>
+              <th class="small text-end pe-3">Bookings</th>
+            </tr>
+          </thead>
+          <tbody>
+          {% for i, u in enumerate(top_users, 1) %}
+          <tr>
+            <td class="ps-3">
+              {% if i == 1 %}<span style="color:#e8a020">🥇</span>
+              {% elif i == 2 %}<span style="color:#94a3b8">🥈</span>
+              {% elif i == 3 %}<span style="color:#cd7f32">🥉</span>
+              {% else %}<span class="text-muted small">{{ i }}</span>{% endif %}
+            </td>
+            <td>
+              <div class="small fw-600" style="color:#1a3a5c">{{ u.name }} {{ u.surname }}</div>
+              <div style="font-size:.68rem;color:#94a3b8;font-family:'JetBrains Mono',monospace">
+                {{ u.student_number }}
+              </div>
+            </td>
+            <td>
+              <span class="badge rounded-pill px-2"
+                    style="font-size:.65rem;
+                      {% if u.role == 'admin' %}background:#e8f0fe;color:#1a3a5c
+                      {% elif u.role == 'staff' %}background:#d1fae5;color:#065f46
+                      {% else %}background:#f1f5f9;color:#475569{% endif %}">
+                {{ u.role|title }}
+              </span>
+            </td>
+            <td class="text-end pe-3 fw-700 small" style="color:#1a3a5c">{{ u.cnt }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="text-center py-4 text-muted small">No data yet.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="section-label">Recent Reviews</div>
+    {% if recent_ratings %}
+      {% for r in recent_ratings %}
+      <div class="review-card">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <div>
+            <span class="small fw-600" style="color:#1a3a5c">{{ r.user.full_name }}</span>
+            <span class="text-muted small ms-2">→ {{ r.facility.name }}</span>
+          </div>
+          <span style="color:#e8a020;font-size:.85rem">
+            {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}
+          </span>
+        </div>
+        {% if r.comment %}
+        <p class="small text-muted mb-1" style="line-height:1.5">{{ r.comment }}</p>
+        {% endif %}
+        <div style="font-size:.65rem;color:#cbd5e1;font-family:'JetBrains Mono',monospace">
+          {{ r.created_at.strftime('%d %b %Y') }}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="card">
+        <div class="card-body text-center py-4 text-muted small">
+          <i class="bi bi-star d-block mb-1" style="font-size:1.5rem;opacity:.3"></i>
+          No reviews submitted yet.
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const CA = (id, type, labels, datasets, opts={}) => {
+  new Chart(document.getElementById(id), {
+    type, data: { labels, datasets },
+    options: { responsive: true, plugins: { legend: { position: 'bottom',
+      labels: { font: { size: 11 }, padding: 12 } } }, ...opts }
+  });
+};
+
+// Daily activity
+CA('chartDaily', 'bar',
+  {{ chart_daily_labels | tojson }},
+  [
+    { label: 'Total',    data: {{ chart_daily_total | tojson }},
+      backgroundColor: 'rgba(37,99,168,.2)', borderColor: '#2563a8',
+      borderWidth: 1.5, borderRadius: 4 },
+    { label: 'Approved', data: {{ chart_daily_approved | tojson }},
+      backgroundColor: 'rgba(40,167,69,.25)', borderColor: '#28a745',
+      borderWidth: 1.5, borderRadius: 4 },
+  ],
+  { scales: { x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+              y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } } } }
+);
+
+// Status doughnut
+CA('chartStatus', 'doughnut',
+  {{ status_labels | tojson }},
+  [{ data: {{ status_values | tojson }},
+     backgroundColor: {{ status_colours | tojson }},
+     hoverOffset: 6, borderWidth: 2, borderColor: '#fff' }],
+  { cutout: '62%' }
+);
+
+// Peak hours
+CA('chartPeak', 'bar',
+  {{ peak_labels | tojson }},
+  [{ label: 'Bookings', data: {{ peak_values | tojson }},
+     backgroundColor: 'rgba(232,160,32,.7)', borderColor: '#e8a020',
+     borderWidth: 1.5, borderRadius: 4 }],
+  { plugins: { legend: { display: false } },
+    scales: { x: { ticks: { font: { size: 9 }, maxRotation: 45 } },
+              y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } } } }
+);
+
+// Day of week
+CA('chartDow', 'bar',
+  {{ dow_labels | tojson }},
+  [{ label: 'Bookings', data: {{ dow_values | tojson }},
+     backgroundColor: 'rgba(26,58,92,.7)', borderColor: '#1a3a5c',
+     borderWidth: 1.5, borderRadius: 4 }],
+  { plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 10 } } } } }
+);
+
+// Facility type doughnut
+CA('chartType', 'doughnut',
+  {{ type_labels | tojson }},
+  [{ data: {{ type_values | tojson }},
+     backgroundColor: ['#2563a8','#e8a020','#28a745','#dc3545'],
+     hoverOffset: 6, borderWidth: 2, borderColor: '#fff' }],
+  { cutout: '55%' }
+);
+</script>
+{% endblock %}

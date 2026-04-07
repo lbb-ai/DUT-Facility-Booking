@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Reschedule Booking{% endblock %}
+{% block page_title %}Reschedule Booking{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <!-- Current booking summary -->
+    <div class="card mb-3" style="border-left:4px solid #e8a020">
+      <div class="card-body p-3">
+        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;
+                    color:#94a3b8;font-weight:700;margin-bottom:6px">
+          Current Schedule
+        </div>
+        <div class="fw-700" style="color:#1a3a5c">{{ booking.title }}</div>
+        <div class="small text-muted">{{ booking.facility.name }}
+          {% if booking.facility.campus %} · {{ booking.facility.campus }}{% endif %}
+        </div>
+        <div class="d-flex gap-3 mt-2 flex-wrap">
+          <span class="small" style="font-family:'JetBrains Mono',monospace;
+                background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:6px">
+            <i class="bi bi-calendar3 me-1"></i>
+            {{ booking.booking_date.strftime('%d %b %Y') }}
+          </span>
+          <span class="small" style="font-family:'JetBrains Mono',monospace;
+                background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:6px">
+            <i class="bi bi-clock me-1"></i>
+            {{ booking.start_time.strftime('%H:%M') }} – {{ booking.end_time.strftime('%H:%M') }}
+          </span>
+          <span class="badge rounded-pill px-2 py-1"
+                style="font-size:.7rem;align-self:center;
+                  {% if booking.status == 'approved' %}background:#d1fae5;color:#065f46
+                  {% elif booking.status == 'paid' %}background:#ede9fe;color:#5b21b6
+                  {% else %}background:#fef3c7;color:#92400e{% endif %}">
+            {% if booking.status == 'paid' %}💳 Paid{% else %}{{ booking.status|title }}{% endif %}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reschedule form -->
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-calendar-event me-2"></i>Choose a New Date &amp; Time
+      </div>
+      <div class="card-body p-4">
+
+        <div class="alert alert-info" style="border-radius:8px;font-size:.85rem">
+          <i class="bi bi-info-circle me-2"></i>
+          {% if current_user.is_external() %}
+          As a confirmed paid booking, you can reschedule to any available date
+          at no extra charge. Your QR code stays valid.
+          {% else %}
+          You can reschedule to any available future date. If currently approved,
+          the booking retains its approved status on the new date.
+          {% endif %}
+        </div>
+
+        <form method="POST"
+              action="{{ url_for('bookings.reschedule_booking', booking_id=booking.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="row g-3 mb-4">
+            <div class="col-md-4">
+              <label class="form-label small fw-600">
+                New Date <span class="text-danger">*</span>
+              </label>
+              <input type="date" name="booking_date" class="form-control"
+                     id="newDate" required
+                     value="{{ booking.booking_date.strftime('%Y-%m-%d') }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-600">
+                Start Time <span class="text-danger">*</span>
+              </label>
+              <input type="time" name="start_time" class="form-control"
+                     id="newStart" required
+                     value="{{ booking.start_time.strftime('%H:%M') }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-600">
+                End Time <span class="text-danger">*</span>
+              </label>
+              <input type="time" name="end_time" class="form-control"
+                     id="newEnd" required
+                     value="{{ booking.end_time.strftime('%H:%M') }}">
+            </div>
+          </div>
+
+          <!-- Live availability checker -->
+          <div id="availabilityResult" class="mb-4" style="display:none">
+            <div id="availabilityInner" class="p-3 rounded small" style="border-radius:8px"></div>
+          </div>
+
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-accent px-4" style="border-radius:8px">
+              <i class="bi bi-calendar-check me-2"></i>Confirm Reschedule
+            </button>
+            <a href="{{ url_for('bookings.booking_detail', booking_id=booking.id) }}"
+               class="btn btn-outline-secondary px-4" style="border-radius:8px">
+              Cancel
+            </a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Set minimum date to tomorrow
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  document.getElementById('newDate').min = tomorrow.toISOString().split('T')[0];
+
+  // Live availability check
+  const facilityId = {{ booking.facility_id }};
+  const bookingId  = {{ booking.id }};
+
+  function checkAvailability() {
+    const d  = document.getElementById('newDate').value;
+    const s  = document.getElementById('newStart').value;
+    const e  = document.getElementById('newEnd').value;
+    const el = document.getElementById('availabilityResult');
+    const inner = document.getElementById('availabilityInner');
+
+    if (!d || !s || !e) { el.style.display = 'none'; return; }
+    if (s >= e) {
+      inner.style.cssText = 'background:#fde8e8;border:1px solid #fca5a5;color:#9b1c1c';
+      inner.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i>End time must be after start time.';
+      el.style.display = 'block';
+      return;
+    }
+
+    fetch(`/api/availability?facility_id=${facilityId}&date=${d}`)
+      .then(r => r.json())
+      .then(data => {
+        el.style.display = 'block';
+        const conflicts = data.bookings.filter(b => {
+          // exclude the current booking from conflict display
+          return b.start < e && b.end > s;
+        });
+        if (conflicts.length === 0) {
+          inner.style.cssText = 'background:#f0fdf4;border:1px solid #bbf7d0;color:#065f46';
+          inner.innerHTML = '<i class="bi bi-check-circle me-1"></i>This time slot is available!';
+        } else {
+          const list = conflicts.map(b =>
+            `<li>${b.title}: ${b.start} – ${b.end}</li>`).join('');
+          inner.style.cssText = 'background:#fef3c7;border:1px solid #fcd34d;color:#92400e';
+          inner.innerHTML = `<i class="bi bi-exclamation-triangle me-1"></i>
+            <strong>Existing bookings on this date:</strong><ul class="mb-0 mt-1">${list}</ul>`;
+        }
+      }).catch(() => { el.style.display = 'none'; });
+  }
+
+  ['newDate', 'newStart', 'newEnd'].forEach(id =>
+    document.getElementById(id).addEventListener('change', checkAvailability)
+  );
+</script>
+{% endblock %}

@@ -1,0 +1,179 @@
+{% extends 'base.html' %}
+{% block title %}New Booking{% endblock %}
+{% block page_title %}New Booking{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-plus-circle me-2"></i>Create a Booking</div>
+      <div class="card-body p-4">
+
+        <form method="POST" action="{{ url_for('bookings.create_booking') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <!-- Title -->
+          <div class="mb-3">
+            <label class="form-label fw-600 small">Booking Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control"
+                   placeholder="e.g. Group Study Session" required>
+          </div>
+
+          <!-- Facility -->
+          <div class="mb-3">
+            <label class="form-label fw-600 small">Facility <span class="text-danger">*</span></label>
+            <select name="facility_id" class="form-control" id="facilitySelect" required>
+              <option value="">— Select a facility —</option>
+              {% for f in facilities %}
+              <option value="{{ f.id }}"
+                      data-capacity="{{ f.capacity }}"
+                      data-location="{{ f.location }}">
+                {{ f.name }} ({{ f.facility_type|replace('_',' ')|title }} · Cap: {{ f.capacity }})
+              </option>
+              {% endfor %}
+            </select>
+            <div id="facilityInfo" class="mt-2 p-2 rounded small text-muted"
+                 style="background:#f8fafc;display:none"></div>
+          </div>
+
+          <!-- Date & Times -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label fw-600 small">Date <span class="text-danger">*</span></label>
+              <input type="date" name="booking_date" class="form-control"
+                     id="bookingDate" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-600 small">Start Time <span class="text-danger">*</span></label>
+              <input type="time" name="start_time" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-600 small">End Time <span class="text-danger">*</span></label>
+              <input type="time" name="end_time" class="form-control" required>
+            </div>
+          </div>
+
+          <!-- Availability info -->
+          <div id="availabilityInfo" class="mb-3 small" style="display:none">
+            <div class="p-2 rounded" style="background:#fef3c7;border:1px solid #fcd34d">
+              <strong><i class="bi bi-exclamation-triangle me-1"></i>Existing bookings on this day:</strong>
+              <ul id="existingBookings" class="mb-0 mt-1 ps-3"></ul>
+            </div>
+          </div>
+
+          <!-- Attendees -->
+          <div class="mb-3">
+            <label class="form-label fw-600 small">Attendees <span class="text-danger">*</span></label>
+            <input type="number" name="attendees" class="form-control"
+                   placeholder="1" min="1" value="1" required>
+          </div>
+
+          <!-- Recurring toggle (NEW Phase 2) -->
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="recurringToggle"
+                     name="is_recurring" value="1">
+              <label class="form-check-label fw-600 small" for="recurringToggle">
+                Recurring Booking
+              </label>
+            </div>
+          </div>
+
+          <!-- Recurring options -->
+          <div id="recurringOptions" class="mb-3 p-3 rounded" style="background:#f0f4ff;border:1px solid #c7d7f0;display:none">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label small fw-600">Repeat Pattern</label>
+                <select name="recurrence_pattern" class="form-control form-control-sm">
+                  <option value="daily">Daily</option>
+                  <option value="weekly" selected>Weekly</option>
+                  <option value="biweekly">Bi-weekly (every 2 weeks)</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-600">Repeat Until</label>
+                <input type="date" name="recurrence_end_date" class="form-control form-control-sm"
+                       id="recurrenceEnd">
+              </div>
+            </div>
+            <div class="mt-2 small text-muted">
+              <i class="bi bi-info-circle me-1"></i>
+              A separate booking will be created for each date. All dates are conflict-checked before submission.
+            </div>
+          </div>
+
+          <!-- Reason -->
+          <div class="mb-4">
+            <label class="form-label fw-600 small">Reason for Booking <span class="text-danger">*</span></label>
+            <textarea name="reason" class="form-control" rows="3"
+                      placeholder="Briefly describe the purpose of this booking..." required></textarea>
+          </div>
+
+          <!-- Buttons -->
+          <div class="d-flex gap-2 flex-wrap">
+            <button type="submit" class="btn btn-accent px-4" style="border-radius:8px">
+              <i class="bi bi-send me-2"></i>Submit for Approval
+            </button>
+            <button type="submit" name="save_draft" value="1"
+                    class="btn btn-outline-secondary px-4" style="border-radius:8px">
+              <i class="bi bi-save me-2"></i>Save as Draft
+            </button>
+            <a href="{{ url_for('bookings.list_bookings') }}"
+               class="btn btn-link text-muted">Cancel</a>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Min date = today
+  document.getElementById('bookingDate').min = new Date().toISOString().split('T')[0];
+
+  // Recurring toggle
+  document.getElementById('recurringToggle').addEventListener('change', function () {
+    document.getElementById('recurringOptions').style.display = this.checked ? 'block' : 'none';
+  });
+
+  // Facility info banner
+  const facilitySelect = document.getElementById('facilitySelect');
+  const facilityInfo   = document.getElementById('facilityInfo');
+  facilitySelect.addEventListener('change', function () {
+    const opt = this.options[this.selectedIndex];
+    if (this.value) {
+      facilityInfo.innerHTML =
+        `<i class="bi bi-geo-alt me-1"></i>${opt.dataset.location} &nbsp;|&nbsp;
+         <i class="bi bi-people me-1"></i>Capacity: ${opt.dataset.capacity}`;
+      facilityInfo.style.display = 'block';
+    } else {
+      facilityInfo.style.display = 'none';
+    }
+    checkAvailability();
+  });
+
+  document.getElementById('bookingDate').addEventListener('change', checkAvailability);
+
+  function checkAvailability() {
+    const fid  = facilitySelect.value;
+    const date = document.getElementById('bookingDate').value;
+    if (!fid || !date) return;
+    fetch(`/api/availability?facility_id=${fid}&date=${date}`)
+      .then(r => r.json())
+      .then(data => {
+        const div = document.getElementById('availabilityInfo');
+        const ul  = document.getElementById('existingBookings');
+        if (data.bookings.length > 0) {
+          ul.innerHTML = data.bookings.map(b =>
+            `<li>${b.title}: ${b.start} – ${b.end}</li>`).join('');
+          div.style.display = 'block';
+        } else {
+          div.style.display = 'none';
+        }
+      }).catch(() => {});
+  }
+</script>
+{% endblock %}

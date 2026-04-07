@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-blue">
+      <div class="stat-icon"><i class="bi bi-calendar3"></i></div>
+      <div>
+        <div class="stat-value">{{ total_bookings }}</div>
+        <div class="stat-label">Total Bookings</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-gold">
+      <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div>
+        <div class="stat-value">{{ pending_count }}</div>
+        <div class="stat-label">Pending Approval</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-green">
+      <div class="stat-icon"><i class="bi bi-building"></i></div>
+      <div>
+        <div class="stat-value">{{ total_facilities }}</div>
+        <div class="stat-label">Facilities</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card stat-red">
+      <div class="stat-icon"><i class="bi bi-calendar-day"></i></div>
+      <div>
+        <div class="stat-value">{{ todays_bookings|length }}</div>
+        <div class="stat-label">Today's Bookings</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Recent booking requests -->
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-list-check me-2"></i>Recent Booking Requests</span>
+        <a href="{{ url_for('admin.manage_requests') }}"
+           class="btn btn-sm btn-outline-primary" style="border-radius:6px;font-size:.78rem">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="small">Title</th>
+                <th class="small">User</th>
+                <th class="small">Facility</th>
+                <th class="small">Date</th>
+                <th class="small">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for b in recent_bookings %}
+            <tr>
+              <td>
+                <a href="{{ url_for('bookings.booking_detail', booking_id=b.id) }}"
+                   class="small fw-600 text-decoration-none" style="color:#1a3a5c">
+                  {{ b.title }}
+                </a>
+              </td>
+              <td>
+                <div class="small fw-600">{{ b.user.full_name }}</div>
+                <div class="text-muted" style="font-size:.68rem;font-family:'JetBrains Mono',monospace">
+                  {{ b.user.student_number }}
+                </div>
+              </td>
+              <td class="small text-muted">{{ b.facility.name }}</td>
+              <td class="small text-muted">{{ b.booking_date.strftime('%d %b %Y') }}</td>
+              <td>
+                <span class="badge badge-{{ b.status }} rounded-pill px-2 py-1" style="font-size:.7rem">
+                  {{ b.status|title }}
+                </span>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="5" class="text-center text-muted py-4 small">No bookings yet.</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's schedule -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-calendar-check me-2"></i>Today's Approved</div>
+      <div class="card-body">
+        {% for b in todays_bookings %}
+        <div class="d-flex gap-2 mb-3 pb-3 border-bottom">
+          <div class="text-center flex-shrink-0" style="min-width:45px">
+            <div class="small fw-700" style="color:#1a3a5c;font-family:'JetBrains Mono',monospace">
+              {{ b.start_time.strftime('%H:%M') }}
+            </div>
+            <div class="text-muted" style="font-size:.62rem">{{ b.end_time.strftime('%H:%M') }}</div>
+          </div>
+          <div>
+            <div class="small fw-600">{{ b.title }}</div>
+            <div class="text-muted" style="font-size:.73rem">{{ b.facility.name }}</div>
+          </div>
+        </div>
+        {% else %}
+        <p class="text-muted text-center small py-3">No bookings today.</p>
+        {% endfor %}
+
+        <div class="d-grid gap-2 mt-3">
+          <a href="{{ url_for('admin.manage_requests') }}?status=pending"
+             class="btn btn-accent btn-sm">
+            <i class="bi bi-hourglass me-1"></i>Review Pending ({{ pending_count }})
+          </a>
+          <a href="{{ url_for('facilities.add_facility') }}"
+             class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-plus me-1"></i>Add Facility
+          </a>
+          <a href="{{ url_for('analytics.reports') }}"
+             class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-bar-chart-line me-1"></i>View Analytics
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}Payment Successful{% endblock %}
+{% block page_title %}Payment Successful{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-7">
+
+    <!-- Success banner -->
+    <div class="text-center mb-4">
+      <div style="width:80px;height:80px;background:#d1fae5;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2.2rem">✅</div>
+      <h2 style="color:#065f46;font-weight:700;font-size:1.3rem">Payment Successful!</h2>
+      <p class="text-muted" style="font-size:.88rem">Your bookings have been confirmed. Check your email for details.</p>
+    </div>
+
+    <!-- Order card -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-receipt me-2"></i>Order Confirmation</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#94a3b8">{{ order.reference }}</span>
+      </div>
+      <div class="card-body p-0">
+        {% for booking in bookings %}
+        <div class="p-3 border-bottom">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-700 small" style="color:#1a3a5c">{{ booking.title }}</div>
+              <div class="small text-muted">{{ booking.facility.name }}
+                {% if booking.facility.campus %} · {{ booking.facility.campus }}{% endif %}
+              </div>
+              <div class="small mt-1" style="font-family:'JetBrains Mono',monospace;font-size:.72rem">
+                {{ booking.booking_date.strftime('%a, %d %b %Y') }}
+                · {{ booking.start_time.strftime('%H:%M') }}–{{ booking.end_time.strftime('%H:%M') }}
+              </div>
+            </div>
+            <div class="text-end">
+              <div class="fw-700" style="color:#1a3a5c;font-family:'JetBrains Mono',monospace">
+                R{{ "%.2f"|format(booking.amount_paid) }}
+              </div>
+              <span class="badge rounded-pill" style="background:#d1fae5;color:#065f46;font-size:.68rem">Paid</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+        <div class="p-3 d-flex justify-content-between align-items-center">
+          <span class="fw-700 small">Total Paid</span>
+          <span class="fw-700" style="font-size:1.1rem;color:#1a3a5c;font-family:'JetBrains Mono',monospace">
+            R{{ "%.2f"|format(order.amount_total) }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex gap-2 justify-content-center">
+      <a href="{{ url_for('bookings.list_bookings') }}" class="btn btn-accent px-4" style="border-radius:8px">
+        <i class="bi bi-calendar3 me-2"></i>View My Bookings
+      </a>
+      <a href="{{ url_for('facilities.list_facilities') }}" class="btn btn-outline-secondary px-4" style="border-radius:8px">
+        <i class="bi bi-building me-1"></i>Browse Facilities
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

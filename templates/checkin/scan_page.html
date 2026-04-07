@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+{% block title %}QR Scanner{% endblock %}
+{% block page_title %}QR Code Scanner{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Camera viewport ─────────────────────────────────────── */
+  #cameraWrap {
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #000;
+    aspect-ratio: 1 / 1;
+  }
+  #preview {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  /* Scanning overlay frame */
+  #scanFrame {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  .scan-box {
+    width: 65%; height: 65%;
+    border: 3px solid #e8a020;
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,.45);
+    position: relative;
+  }
+  /* Animated scan line */
+  .scan-line {
+    position: absolute;
+    left: 8px; right: 8px; top: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #e8a020, transparent);
+    border-radius: 2px;
+    animation: scanLine 2s ease-in-out infinite;
+  }
+  @keyframes scanLine {
+    0%   { top: 5%; opacity: 1; }
+    50%  { top: 90%; opacity: 1; }
+    100% { top: 5%; opacity: 1; }
+  }
+  /* Corner markers */
+  .scan-box::before, .scan-box::after,
+  .corner-bl, .corner-br {
+    content: '';
+    position: absolute;
+    width: 22px; height: 22px;
+    border-color: #e8a020;
+    border-style: solid;
+  }
+  .scan-box::before { top: -3px;  left: -3px;  border-width: 4px 0 0 4px; border-radius: 4px 0 0 0; }
+  .scan-box::after  { top: -3px;  right: -3px; border-width: 4px 4px 0 0; border-radius: 0 4px 0 0; }
+  .corner-bl { bottom: -3px; left: -3px;  border-width: 0 0 4px 4px; border-radius: 0 0 0 4px; }
+  .corner-br { bottom: -3px; right: -3px; border-width: 0 4px 4px 0; border-radius: 0 0 4px 0; }
+
+  /* Status bar below camera */
+  #statusBar {
+    text-align: center;
+    padding: 10px;
+    font-size: .85rem;
+    font-weight: 600;
+    border-radius: 0 0 12px 12px;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .status-scanning  { background: #1a3a5c; color: #fff; }
+  .status-found     { background: #22c55e; color: #fff; }
+  .status-error     { background: #ef4444; color: #fff; }
+  .status-denied    { background: #f59e0b; color: #1a3a5c; }
+  .status-idle      { background: #f1f5f9; color: #64748b; }
+
+  /* Toggle btn */
+  .section-toggle {
+    background: none; border: none; width: 100%;
+    text-align: left; padding: 12px 0;
+    font-size: .82rem; font-weight: 600; color: #64748b;
+    cursor: pointer; display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .section-toggle:hover { color: #1a3a5c; }
+
+  /* Camera off placeholder */
+  #cameraOff {
+    position: absolute; inset: 0;
+    background: #0f172a;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: rgba(255,255,255,.6); font-size: .85rem;
+    gap: 10px;
+  }
+  #cameraOff i { font-size: 3rem; opacity: .4; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+
+    <!-- ── Camera scanner card ─────────────────────────────── -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-qr-code-scan me-2"></i>Camera Scanner</span>
+        <div class="d-flex gap-2 align-items-center">
+          <select id="cameraSelect" class="form-control form-control-sm"
+                  style="font-size:.78rem;max-width:160px;display:none">
+          </select>
+          <button id="startBtn" class="btn btn-accent btn-sm" style="border-radius:8px"
+                  onclick="startCamera()">
+            <i class="bi bi-camera-video me-1"></i>Start Camera
+          </button>
+          <button id="stopBtn" class="btn btn-outline-secondary btn-sm" style="border-radius:8px;display:none"
+                  onclick="stopCamera()">
+            <i class="bi bi-stop-circle me-1"></i>Stop
+          </button>
+        </div>
+      </div>
+
+      <div style="background:#0f172a">
+        <div id="cameraWrap">
+          <!-- Camera off placeholder -->
+          <div id="cameraOff">
+            <i class="bi bi-qr-code"></i>
+            <div>Tap <strong>Start Camera</strong> to begin scanning</div>
+            <div style="font-size:.72rem;opacity:.5">
+              Point camera at the QR code on the printed confirmation
+            </div>
+          </div>
+          <video id="preview" autoplay playsinline muted style="display:none"></video>
+          <!-- Scan frame overlay -->
+          <div id="scanFrame" style="display:none">
+            <div class="scan-box">
+              <div class="scan-line"></div>
+              <div class="corner-bl"></div>
+              <div class="corner-br"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Status bar -->
+        <div id="statusBar" class="status-idle">
+          <i class="bi bi-camera-video-off"></i> Camera not started
+        </div>
+      </div>
+
+      <div class="card-body p-3">
+        <div class="small text-muted" style="font-size:.78rem;line-height:1.6">
+          <i class="bi bi-info-circle me-1"></i>
+          Hold the printed QR code steady inside the frame. The system will automatically
+          navigate to the check-in page when a valid code is detected.
+          Check-in opens <strong>1 hour before</strong> the session start time.
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Manual entry (collapsed by default) ─────────────── -->
+    <div class="card">
+      <div class="card-body py-2 px-3">
+        <button class="section-toggle" type="button" onclick="toggleManual()">
+          <span><i class="bi bi-keyboard me-2"></i>Manual Token Entry</span>
+          <i class="bi bi-chevron-down" id="manualChevron"></i>
+        </button>
+        <div id="manualSection" style="display:none">
+          <div class="small text-muted mb-3" style="font-size:.78rem">
+            Type or paste the booking token printed below the QR code on the confirmation document.
+          </div>
+          <form method="POST" action="{{ url_for('checkin.manual_lookup') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="mb-3">
+              <label class="form-label small fw-600">Booking Token</label>
+              <input type="text" name="token" id="tokenInput" class="form-control"
+                     placeholder="DUTFBS-1-xxxxxx"
+                     style="font-family:'JetBrains Mono',monospace;font-size:.88rem">
+            </div>
+            <button type="submit" class="btn btn-outline-primary w-100" style="border-radius:8px">
+              <i class="bi bi-search me-2"></i>Look Up Booking
+            </button>
+          </form>
+          <hr class="my-3" style="border-color:#f1f5f9">
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance dashboard link -->
+    <div class="text-center mt-3">
+      <a href="{{ url_for('admin.attendance') }}"
+         class="btn btn-outline-secondary btn-sm" style="border-radius:8px">
+        <i class="bi bi-person-check me-1"></i>View Attendance Dashboard
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jsQR — lightweight pure-JS QR decoder, no server needed -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+let stream      = null;
+let animFrame   = null;
+let scanning    = false;
+let lastResult  = '';
+let resultTimer = null;
+
+const video       = document.getElementById('preview');
+const cameraWrap  = document.getElementById('cameraWrap');
+const cameraOff   = document.getElementById('cameraOff');
+const scanFrame   = document.getElementById('scanFrame');
+const statusBar   = document.getElementById('statusBar');
+const startBtn    = document.getElementById('startBtn');
+const stopBtn     = document.getElementById('stopBtn');
+const camSelect   = document.getElementById('cameraSelect');
+
+// ── Enumerate cameras ────────────────────────────────────────
+async function listCameras() {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const cams    = devices.filter(d => d.kind === 'videoinput');
+    if (cams.length > 1) {
+      camSelect.innerHTML = cams.map((c, i) =>
+        `<option value="${c.deviceId}">${c.label || 'Camera ' + (i+1)}</option>`
+      ).join('');
+      // Prefer rear camera on mobile
+      const rearIdx = cams.findIndex(c => /back|rear|environment/i.test(c.label));
+      if (rearIdx > -1) camSelect.selectedIndex = rearIdx;
+      camSelect.style.display = '';
+      camSelect.addEventListener('change', () => { stopCamera(); startCamera(); });
+    }
+  } catch(e) {}
+}
+
+// ── Start camera ─────────────────────────────────────────────
+async function startCamera() {
+  setStatus('scanning', '<span class="spinner-border spinner-border-sm"></span> Starting camera...');
+
+  const constraints = {
+    video: {
+      deviceId:   camSelect.value ? { exact: camSelect.value } : undefined,
+      facingMode: camSelect.value ? undefined : { ideal: 'environment' },
+      width:  { ideal: 1280 },
+      height: { ideal: 1280 },
+    }
+  };
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = stream;
+    await video.play();
+
+    cameraOff.style.display  = 'none';
+    video.style.display      = 'block';
+    scanFrame.style.display  = 'flex';
+    startBtn.style.display   = 'none';
+    stopBtn.style.display    = '';
+    scanning = true;
+
+    setStatus('scanning', '<i class="bi bi-qr-code-scan"></i> Scanning — hold QR code inside the frame');
+    await listCameras();
+    requestAnimationFrame(scanFrame_loop);
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      setStatus('denied', '<i class="bi bi-exclamation-triangle"></i> Camera access denied — use manual entry below');
+      document.getElementById('manualSection').style.display = 'block';
+      document.getElementById('tokenInput').focus();
+    } else {
+      setStatus('error', '<i class="bi bi-x-circle"></i> Camera error: ' + err.message);
+    }
+    cameraOff.querySelector('div').textContent = 'Camera unavailable — use manual entry';
+  }
+}
+
+// ── Stop camera ───────────────────────────────────────────────
+function stopCamera() {
+  scanning = false;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  if (stream)    { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  video.style.display      = 'none';
+  video.srcObject          = null;
+  scanFrame.style.display  = 'none';
+  cameraOff.style.display  = 'flex';
+  startBtn.style.display   = '';
+  stopBtn.style.display    = 'none';
+  setStatus('idle', '<i class="bi bi-camera-video-off"></i> Camera stopped');
+}
+
+// ── Scan loop ─────────────────────────────────────────────────
+const canvas = document.createElement('canvas');
+const ctx    = canvas.getContext('2d');
+
+function scanFrame_loop() {
+  if (!scanning) return;
+  animFrame = requestAnimationFrame(scanFrame_loop);
+
+  if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+  const w = video.videoWidth;
+  const h = video.videoHeight;
+  if (!w || !h) return;
+
+  canvas.width  = w;
+  canvas.height = h;
+  ctx.drawImage(video, 0, 0, w, h);
+
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const code    = jsQR(imgData.data, w, h, { inversionAttempts: 'dontInvert' });
+
+  if (code && code.data && code.data !== lastResult) {
+    lastResult = code.data;
+    onQrDetected(code.data);
+  }
+}
+
+// ── QR detected ───────────────────────────────────────────────
+function onQrDetected(data) {
+  scanning = false;   // pause scanning
+  setStatus('found', '<i class="bi bi-check-circle-fill"></i> QR Code detected! Redirecting...');
+
+  // Flash the scan box green
+  const box = document.querySelector('.scan-box');
+  if (box) { box.style.borderColor = '#22c55e'; box.style.boxShadow = '0 0 0 9999px rgba(0,0,0,.3)'; }
+
+  // If it's a URL on this server, navigate directly
+  try {
+    const url = new URL(data);
+    if (url.hostname === window.location.hostname || url.hostname === '127.0.0.1') {
+      setTimeout(() => { window.location.href = url.pathname; }, 600);
+      return;
+    }
+  } catch(e) {}
+
+  // If it looks like just a token string DUTFBS-xxx, look it up
+  if (/^DUTFBS-/i.test(data.trim())) {
+    setTimeout(() => {
+      window.location.href = '/checkin/' + encodeURIComponent(data.trim());
+    }, 600);
+    return;
+  }
+
+  // Unknown format
+  setStatus('error', '<i class="bi bi-exclamation-triangle"></i> Unrecognised QR code. Try again or use manual entry.');
+  setTimeout(() => {
+    lastResult = '';
+    scanning   = true;
+    const box  = document.querySelector('.scan-box');
+    if (box)   { box.style.borderColor = '#e8a020'; box.style.boxShadow = '0 0 0 9999px rgba(0,0,0,.45)'; }
+    setStatus('scanning', '<i class="bi bi-qr-code-scan"></i> Scanning — hold QR code inside the frame');
+  }, 2500);
+}
+
+// ── Status helper ─────────────────────────────────────────────
+function setStatus(type, html) {
+  statusBar.className = 'status-' + type;
+  statusBar.innerHTML = html;
+}
+
+// ── Manual section toggle ─────────────────────────────────────
+function toggleManual() {
+  const sec = document.getElementById('manualSection');
+  const chv = document.getElementById('manualChevron');
+  const open = sec.style.display === 'none';
+  sec.style.display  = open ? 'block' : 'none';
+  chv.className      = open ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+  if (open) document.getElementById('tokenInput').focus();
+}
+
+// Auto-start camera when page loads
+window.addEventListener('load', () => {
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startCamera();
+  } else {
+    setStatus('denied', '<i class="bi bi-exclamation-triangle"></i> Camera not supported in this browser');
+    document.getElementById('manualSection').style.display = 'block';
+    document.getElementById('manualChevron').className = 'bi bi-chevron-up';
+  }
+});
+
+// Stop camera when navigating away
+window.addEventListener('beforeunload', stopCamera);
+</script>
+{% endblock %}

@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+{% block title %}Booking #{{ booking.id }}{% endblock %}
+{% block page_title %}Booking Detail{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <!-- Status banner -->
+    <div class="alert alert-{% if booking.status == 'approved' %}success{% elif booking.status == 'rejected' %}danger{% elif booking.status == 'pending' %}warning{% else %}secondary{% endif %} mb-3"
+         style="border-radius:10px">
+      <i class="bi bi-{% if booking.status == 'approved' %}check-circle{% elif booking.status == 'rejected' %}x-circle{% elif booking.status == 'pending' %}hourglass-split{% else %}slash-circle{% endif %} me-2"></i>
+      Booking is <strong>{{ booking.status|title }}</strong>
+      {% if booking.admin_notes %} — <span class="small">{{ booking.admin_notes }}</span>{% endif %}
+    </div>
+
+    <!-- Recurring badge -->
+    {% if booking.is_recurring %}
+    <div class="alert alert-info mb-3" style="border-radius:10px;font-size:.85rem">
+      <i class="bi bi-arrow-repeat me-2"></i>
+      <strong>Recurring</strong> — {{ booking.recurrence_pattern|title }}
+      {% if booking.recurrence_end_date %}until {{ booking.recurrence_end_date.strftime('%d %b %Y') }}{% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar3 me-2"></i>{{ booking.title }}</span>
+        <span class="badge badge-{{ booking.status }} rounded-pill px-2 py-1" style="font-size:.75rem">
+          {{ booking.status|title }}
+        </span>
+      </div>
+      <div class="card-body">
+
+        <!-- Key info -->
+        <div class="row g-3 mb-4">
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0">
+              <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;font-weight:700">Facility</div>
+              <div class="fw-700 mt-1" style="color:#1a3a5c">{{ booking.facility.name }}</div>
+              <div class="small text-muted">{{ booking.facility.location }}</div>
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0">
+              <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;font-weight:700">Date & Time</div>
+              <div class="fw-700 mt-1" style="color:#1a3a5c">{{ booking.booking_date.strftime('%A, %d %B %Y') }}</div>
+              <div class="small" style="font-family:'JetBrains Mono',monospace">
+                {{ booking.start_time.strftime('%H:%M') }} – {{ booking.end_time.strftime('%H:%M') }}
+                ({{ booking.duration_hours|round(1) }}h)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Details table -->
+        <table class="table table-borderless table-sm mb-4">
+          <tr>
+            <td class="small text-muted fw-600" style="width:160px">Booked By</td>
+            <td class="small">{{ booking.user.full_name }}
+              <span class="text-muted ms-1" style="font-family:'JetBrains Mono',monospace;font-size:.72rem">
+                ({{ booking.user.student_number }})
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td class="small text-muted fw-600">Attendees</td>
+            <td class="small">{{ booking.attendees }}</td>
+          </tr>
+          <tr>
+            <td class="small text-muted fw-600">Submitted</td>
+            <td class="small">{{ booking.created_at.strftime('%d %b %Y at %H:%M') }}</td>
+          </tr>
+          <tr>
+            <td class="small text-muted fw-600">Reason</td>
+            <td class="small">{{ booking.reason }}</td>
+          </tr>
+        </table>
+
+        <!-- Actions row -->
+        <div class="d-flex gap-2 flex-wrap">
+          <a href="{{ url_for('bookings.list_bookings') }}"
+             class="btn btn-outline-secondary btn-sm" style="border-radius:8px">
+            <i class="bi bi-arrow-left me-1"></i>Back
+          </a>
+
+          <!-- PDF buttons (Phase 3) -->
+          <a href="{{ url_for('bookings.booking_confirmation', booking_id=booking.id) }}"
+             target="_blank"
+             class="btn btn-outline-primary btn-sm" style="border-radius:8px">
+            <i class="bi bi-printer me-1"></i>Print Confirmation
+          </a>
+          <a href="{{ url_for('bookings.download_pdf', booking_id=booking.id) }}"
+             class="btn btn-outline-secondary btn-sm" style="border-radius:8px">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+          </a>
+
+          {% if booking.status == 'pending' and current_user.is_admin() %}
+          <a href="{{ url_for('admin.manage_requests') }}"
+             class="btn btn-accent btn-sm" style="border-radius:8px">
+            <i class="bi bi-clipboard-check me-1"></i>Review in Admin
+          </a>
+          {% endif %}
+
+          {% if booking.status == 'draft' and booking.user_id == current_user.id %}
+          <form method="POST" action="{{ url_for('bookings.submit_draft', booking_id=booking.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm" style="border-radius:8px">
+              <i class="bi bi-send me-1"></i>Submit for Approval
+            </button>
+          </form>
+          {% endif %}
+
+          {% if booking.status in ['pending', 'approved', 'draft'] %}
+          {% if current_user.is_admin() or booking.user_id == current_user.id %}
+            {% if booking.is_recurring and booking.recurrence_group_id %}
+            <!-- Cancel with series option -->
+            <button class="btn btn-outline-danger btn-sm" style="border-radius:8px"
+                    data-bs-toggle="modal" data-bs-target="#cancelModal">
+              <i class="bi bi-x-circle me-1"></i>Cancel
+            </button>
+            {% else %}
+            <form method="POST" action="{{ url_for('bookings.cancel_booking', booking_id=booking.id) }}"
+                  onsubmit="return confirm('Cancel this booking?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-outline-danger btn-sm" style="border-radius:8px">
+                <i class="bi bi-x-circle me-1"></i>Cancel Booking
+              </button>
+            </form>
+            {% endif %}
+          {% endif %}
+          {% endif %}
+
+          <!-- Reschedule button: internal (approved/pending) or external (paid), future only, not attended -->
+          {% if booking.user_id == current_user.id
+                and not booking.is_attended
+                and booking.booking_date > today %}
+            {% if (current_user.is_external() and booking.status == 'paid')
+                  or (not current_user.is_external() and booking.status in ['approved', 'pending']) %}
+          <a href="{{ url_for('bookings.reschedule_booking', booking_id=booking.id) }}"
+             class="btn btn-outline-warning btn-sm" style="border-radius:8px">
+            <i class="bi bi-calendar-event me-1"></i>Reschedule
+          </a>
+            {% endif %}
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── Rating section (NEW Phase 2) ──────────────────── -->
+    {% if can_rate %}
+    <div class="card mt-3">
+      <div class="card-header"><i class="bi bi-star me-2"></i>Rate this Facility</div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('bookings.rate_facility', booking_id=booking.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="mb-3">
+            <label class="form-label small fw-600">Your Rating</label>
+            <div class="d-flex gap-2">
+              {% for i in range(1, 6) %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="rating"
+                       id="star{{ i }}" value="{{ i }}" required>
+                <label class="form-check-label" for="star{{ i }}">
+                  <span style="font-size:1.4rem;color:#e8a020">★</span>
+                  <span class="small text-muted">{{ i }}</span>
+                </label>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-600">Comment (optional)</label>
+            <textarea name="comment" class="form-control form-control-sm" rows="2"
+                      placeholder="Share your experience with this facility..."></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-accent btn-sm" style="border-radius:8px">
+            <i class="bi bi-star-fill me-1"></i>Submit Rating
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if existing_rating %}
+    <div class="card mt-3">
+      <div class="card-header"><i class="bi bi-star-fill me-2" style="color:#e8a020"></i>Your Rating</div>
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-1">
+          <span style="font-size:1.3rem;color:#e8a020">
+            {{ '★' * existing_rating.rating }}{{ '☆' * (5 - existing_rating.rating) }}
+          </span>
+          <span class="fw-700" style="color:#1a3a5c">{{ existing_rating.rating }}/5</span>
+        </div>
+        {% if existing_rating.comment %}
+        <p class="small text-muted mb-0">{{ existing_rating.comment }}</p>
+        {% endif %}
+        <div class="text-muted mt-1" style="font-size:.72rem">
+          Submitted {{ existing_rating.created_at.strftime('%d %b %Y') }}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- Cancel series modal (recurring only) -->
+{% if booking.is_recurring and booking.recurrence_group_id %}
+<div class="modal fade" id="cancelModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:12px">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-700" style="color:#9b1c1c">Cancel Booking</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted">This is a recurring booking. What would you like to cancel?</p>
+        <div class="d-grid gap-2">
+          <form method="POST" action="{{ url_for('bookings.cancel_booking', booking_id=booking.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm w-100" style="border-radius:8px">
+              Cancel only this date ({{ booking.booking_date.strftime('%d %b %Y') }})
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('bookings.cancel_booking', booking_id=booking.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="cancel_series" value="1">
+            <button type="submit" class="btn btn-danger btn-sm w-100" style="border-radius:8px">
+              Cancel all upcoming in this series
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── QR Code & Attendance (Phase 5) ──────────────────────── -->
+{% if booking.status in ['approved', 'paid'] and booking.qr_token %}
+<div class="row justify-content-center mt-3">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-qr-code me-2"></i>Check-in QR Code</span>
+        {% if booking.is_attended %}
+        <span style="color:#065f46;font-size:.82rem;font-weight:700">
+          ✅ Attended {{ booking.attended_at.strftime('%d %b at %H:%M') }}
+        </span>
+        {% else %}
+        <span style="color:#94a3b8;font-size:.78rem">⏳ Not yet attended</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-4 align-items-center">
+
+          <!-- QR image -->
+          <div class="text-center flex-shrink-0">
+            <img src="{{ url_for('bookings.qr_image', booking_id=booking.id) }}"
+                 alt="Check-in QR Code" width="140" height="140"
+                 style="border:2px solid #1a3a5c;border-radius:10px;padding:4px">
+            <div style="font-size:.65rem;color:#94a3b8;margin-top:6px;
+                        font-family:'JetBrains Mono',monospace">
+              {{ booking.qr_token[:28] }}...
+            </div>
+          </div>
+
+          <!-- Instructions -->
+          <div style="flex:1;min-width:180px">
+            {% if booking.is_attended %}
+            <div class="p-3 rounded mb-2"
+                 style="background:#f0fdf4;border:1px solid #bbf7d0">
+              <div class="fw-700 small" style="color:#065f46">
+                ✅ Attendance confirmed
+              </div>
+              <div class="small text-muted mt-1">
+                Checked in at
+                <strong>{{ booking.attended_at.strftime('%H:%M') }}</strong>
+                on {{ booking.attended_at.strftime('%d %b %Y') }}
+              </div>
+              {% if booking.attended_by %}
+              <div class="small text-muted">
+                Verified by: {{ booking.attended_by.full_name }}
+              </div>
+              {% endif %}
+            </div>
+            {% else %}
+            <div class="small text-muted mb-2" style="line-height:1.6">
+              <i class="bi bi-info-circle me-1"></i>
+              Present this QR code (or the printed PDF confirmation) to the
+              facility attendant when you arrive. They will scan it to
+              confirm your attendance.
+            </div>
+            {% endif %}
+
+            <div class="d-flex gap-2 flex-wrap mt-2">
+              <a href="{{ url_for('bookings.booking_confirmation', booking_id=booking.id) }}"
+                 target="_blank"
+                 class="btn btn-sm btn-outline-primary" style="border-radius:8px">
+                <i class="bi bi-printer me-1"></i>Print / PDF
+              </a>
+              <a href="{{ url_for('bookings.download_pdf', booking_id=booking.id) }}"
+                 class="btn btn-sm btn-outline-secondary" style="border-radius:8px">
+                <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

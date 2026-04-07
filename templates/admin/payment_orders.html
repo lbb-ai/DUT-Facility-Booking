@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Payment Orders{% endblock %}
+{% block page_title %}External Payment Orders{% endblock %}
+
+{% block content %}
+<!-- Summary KPIs -->
+<div class="row g-3 mb-4">
+  {% for label, val, bg, colour in [
+    ('Total Orders',   stats.total,     '#e8f0fe', '#1a3a5c'),
+    ('Paid',           stats.paid,      '#d1fae5', '#065f46'),
+    ('Pending',        stats.pending,   '#fef3c7', '#92400e'),
+    ('Cancelled/Failed', stats.other,   '#f3f4f6', '#374151'),
+  ] %}
+  <div class="col-6 col-md-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:{{ bg }};color:{{ colour }}">
+        <i class="bi bi-credit-card"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="color:{{ colour }}">{{ val }}</div>
+        <div class="stat-label">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Orders table -->
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-receipt me-2"></i>All Orders</span>
+    <!-- Status filter -->
+    <div class="d-flex gap-1">
+      {% for s, label in [('all','All'), ('paid','Paid'), ('pending','Pending'), ('cancelled','Cancelled'), ('failed','Failed')] %}
+      <a href="{{ url_for('admin.payment_orders_list', status=s) }}"
+         class="btn btn-sm {% if status_filter == s %}btn-accent{% else %}btn-outline-secondary{% endif %}"
+         style="border-radius:6px;font-size:.72rem">{{ label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="small ps-3">Reference</th>
+            <th class="small">Member</th>
+            <th class="small">Items</th>
+            <th class="small text-end">Amount</th>
+            <th class="small">Status</th>
+            <th class="small">Date</th>
+            <th class="small pe-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for o in orders %}
+        <tr>
+          <td class="ps-3" style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#94a3b8">
+            {{ o.reference }}
+          </td>
+          <td>
+            <div class="small fw-600" style="color:#1a3a5c">{{ o.user.full_name }}</div>
+            <div style="font-size:.7rem;color:#94a3b8">{{ o.user.organisation or o.user.email }}</div>
+          </td>
+          <td class="small text-muted">{{ o.line_items.count() }} item{{ 's' if o.line_items.count() != 1 }}</td>
+          <td class="text-end fw-700 small" style="font-family:'JetBrains Mono',monospace;color:#1a3a5c">
+            R{{ "%.2f"|format(o.amount_total) }}
+          </td>
+          <td>
+            <span class="badge rounded-pill px-2 py-1"
+                  style="font-size:.68rem;
+                    {% if o.status == 'paid' %}background:#d1fae5;color:#065f46
+                    {% elif o.status == 'pending' %}background:#fef3c7;color:#92400e
+                    {% elif o.status == 'failed' %}background:#fde8e8;color:#9b1c1c
+                    {% else %}background:#f3f4f6;color:#374151{% endif %}">
+              {{ o.status|title }}
+            </span>
+          </td>
+          <td class="small text-muted">{{ o.created_at.strftime('%d %b %Y') }}</td>
+          <td class="pe-3">
+            <a href="{{ url_for('admin.payment_order_detail', order_id=o.id) }}"
+               class="btn btn-sm btn-outline-primary" style="border-radius:6px;font-size:.72rem">
+              <i class="bi bi-eye"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center py-5 text-muted small">No orders found.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

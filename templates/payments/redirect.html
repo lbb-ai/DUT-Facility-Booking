@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting to PayFast...</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Sora', sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+    body { min-height: 100vh; background: #f4f6f9; display: flex; align-items: center; justify-content: center; }
+    .box { background: #fff; border-radius: 16px; padding: 3rem 2.5rem; text-align: center; max-width: 420px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,.08); }
+    .spinner { width: 52px; height: 52px; border: 4px solid #e2e8f0; border-top-color: #1a3a5c; border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 1.5rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    h2 { color: #1a3a5c; font-size: 1.1rem; font-weight: 700; margin-bottom: .5rem; }
+    p  { color: #94a3b8; font-size: .85rem; line-height: 1.6; }
+    .ref { margin-top: .75rem; font-family: monospace; font-size: .72rem; color: #cbd5e1; }
+    .fallback { margin-top: 1.5rem; display: none; }
+    .fallback button { background: #1a3a5c; color: #fff; border: none; padding: .65rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: .88rem; }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <div class="spinner"></div>
+  <h2>Redirecting to PayFast</h2>
+  <p>You are being securely redirected to complete your payment.<br>Please do not close this page.</p>
+  <div class="ref">Ref: {{ pf.fields.m_payment_id }}</div>
+  <div class="fallback" id="fallback">
+    <button onclick="document.getElementById('pfForm').submit()">
+      Click here if not redirected automatically
+    </button>
+  </div>
+</div>
+
+<!-- PayFast POST form — minimal fields, no signature -->
+<form id="pfForm" method="POST" action="{{ pf.action }}" style="display:none">
+  <input type="hidden" name="merchant_id"  value="{{ pf.fields.merchant_id }}">
+  <input type="hidden" name="merchant_key" value="{{ pf.fields.merchant_key }}">
+  <input type="hidden" name="return_url"   value="{{ pf.fields.return_url }}">
+  <input type="hidden" name="cancel_url"   value="{{ pf.fields.cancel_url }}">
+  <input type="hidden" name="amount"       value="{{ pf.fields.amount }}">
+  <input type="hidden" name="item_name"    value="{{ pf.fields.item_name }}">
+  <input type="hidden" name="m_payment_id" value="{{ pf.fields.m_payment_id }}">
+</form>
+
+<script>
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      document.getElementById('pfForm').submit();
+    }, 800);
+    setTimeout(function () {
+      document.getElementById('fallback').style.display = 'block';
+    }, 4000);
+  });
+</script>
+</body>
+</html>

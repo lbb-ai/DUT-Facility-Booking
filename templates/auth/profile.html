@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block extra_css %}
+<style>
+  .avatar-wrap {
+    position:relative; width:100px; height:100px; margin:0 auto 1rem;
+  }
+  .avatar-wrap img {
+    width:100px; height:100px; border-radius:50%; object-fit:cover;
+    border:3px solid #e2e8f0; background:#f0f4f8;
+  }
+  .avatar-edit-btn {
+    position:absolute; bottom:2px; right:2px;
+    width:30px; height:30px; border-radius:50%;
+    background:#1a3a5c; color:#fff; border:2px solid #fff;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; font-size:.75rem; transition:background .2s;
+  }
+  .avatar-edit-btn:hover { background:#2563a8; }
+  .stat-pill {
+    background:#f0f4f8; border-radius:10px; padding:12px 16px; text-align:center;
+  }
+  .stat-pill .val { font-size:1.4rem; font-weight:800; color:#1a3a5c; font-family:'JetBrains Mono',monospace; }
+  .stat-pill .lbl { font-size:.68rem; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; font-weight:700; }
+  .tab-nav { display:flex; gap:4px; margin-bottom:1.25rem; border-bottom:2px solid #f1f5f9; }
+  .tab-btn {
+    border:none; background:none; padding:8px 16px; font-size:.85rem; font-weight:600;
+    color:#94a3b8; cursor:pointer; border-bottom:2px solid transparent;
+    margin-bottom:-2px; transition:all .2s;
+  }
+  .tab-btn.active { color:#1a3a5c; border-bottom-color:#1a3a5c; }
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; }
+  .oauth-badge {
+    background:#e8f0fe; color:#1a3a5c; border-radius:100px;
+    padding:4px 12px; font-size:.72rem; font-weight:700;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+    <div class="row g-3">
+
+      <!-- Left: avatar card -->
+      <div class="col-lg-3">
+        <div class="card text-center p-3 mb-3">
+
+          <!-- Avatar -->
+          <form method="POST" action="{{ url_for('auth.profile') }}"
+                enctype="multipart/form-data" id="avatarForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="update_info">
+            <div class="avatar-wrap">
+              <img src="{{ current_user.avatar_url }}" alt="Avatar" id="avatarPreview">
+              <label class="avatar-edit-btn" for="avatarInput" title="Change photo">
+                <i class="bi bi-camera-fill"></i>
+              </label>
+              <input type="file" id="avatarInput" name="profile_picture"
+                     accept="image/*" style="display:none">
+            </div>
+          </form>
+
+          <div class="fw-700" style="color:#1a3a5c;font-size:.95rem">{{ current_user.full_name }}</div>
+          <div class="small text-muted mb-2"
+               style="font-family:'JetBrains Mono',monospace;font-size:.72rem">
+            {{ current_user.student_number }}
+          </div>
+
+          <!-- Role badge -->
+          <span class="badge rounded-pill mx-auto mb-2 px-3 py-1"
+                style="font-size:.7rem;width:fit-content;
+                  {% if current_user.role == 'admin' %}background:#e8f0fe;color:#1a3a5c
+                  {% elif current_user.role == 'staff' %}background:#d1fae5;color:#065f46
+                  {% else %}background:#f1f5f9;color:#475569{% endif %}">
+            {{ current_user.role|title }}
+          </span>
+
+          <!-- OAuth badge -->
+          {% if current_user.is_oauth_user() %}
+          <div class="mb-2">
+            <span class="oauth-badge">
+              <svg width="12" height="12" viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+              </svg>
+              Microsoft account
+            </span>
+          </div>
+          {% endif %}
+
+          <div class="small text-muted" style="font-size:.72rem">
+            Joined {{ current_user.created_at.strftime('%b %Y') }}
+          </div>
+
+          <!-- Remove avatar -->
+          {% if current_user.profile_picture %}
+          <form method="POST" action="{{ url_for('auth.profile') }}" class="mt-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" value="remove_avatar">
+            <button type="submit" class="btn btn-sm btn-outline-danger w-100"
+                    style="border-radius:8px;font-size:.72rem"
+                    onclick="return confirm('Remove profile picture?')">
+              <i class="bi bi-trash me-1"></i>Remove Photo
+            </button>
+          </form>
+          {% endif %}
+        </div>
+
+        <!-- Booking stats -->
+        <div class="card p-3">
+          <div class="section-label small mb-2" style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;font-weight:700">My Bookings</div>
+          <div class="row g-2">
+            <div class="col-12"><div class="stat-pill"><div class="val">{{ stats.total }}</div><div class="lbl">Total</div></div></div>
+            <div class="col-6"><div class="stat-pill"><div class="val" style="color:#28a745">{{ stats.approved }}</div><div class="lbl">Approved</div></div></div>
+            <div class="col-6"><div class="stat-pill"><div class="val" style="color:#e8a020">{{ stats.pending }}</div><div class="lbl">Pending</div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: edit forms -->
+      <div class="col-lg-9">
+        <div class="card">
+          <div class="card-body p-4">
+
+            <!-- Tabs -->
+            <div class="tab-nav">
+              <button class="tab-btn active" onclick="showTab('info', this)">
+                <i class="bi bi-person me-1"></i>Personal Info
+              </button>
+              <button class="tab-btn" onclick="showTab('password', this)">
+                <i class="bi bi-lock me-1"></i>Password
+              </button>
+            </div>
+
+            <!-- Tab: Personal Info -->
+            <div id="tab-info" class="tab-pane active">
+              <form method="POST" action="{{ url_for('auth.profile') }}"
+                    enctype="multipart/form-data" id="infoForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="update_info">
+                <!-- Hidden file input synced to avatar upload button -->
+                <input type="file" name="profile_picture" id="hiddenAvatarInput" accept="image/*" style="display:none">
+
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-600">First Name</label>
+                    <input type="text" name="name" class="form-control form-control-sm"
+                           value="{{ current_user.name }}" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-600">Surname</label>
+                    <input type="text" name="surname" class="form-control form-control-sm"
+                           value="{{ current_user.surname }}" required>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-600">Email Address</label>
+                  <input type="email" class="form-control form-control-sm"
+                         value="{{ current_user.email }}" disabled
+                         style="background:#f8fafc;color:#94a3b8">
+                  <div class="form-text" style="font-size:.72rem">Email cannot be changed. Contact an admin if needed.</div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-600">Student / Staff Number</label>
+                  <input type="text" class="form-control form-control-sm"
+                         value="{{ current_user.student_number }}" disabled
+                         style="background:#f8fafc;color:#94a3b8">
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label small fw-600">Phone Number <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="tel" name="phone" class="form-control form-control-sm"
+                         value="{{ current_user.phone or '' }}"
+                         placeholder="+27 31 000 0000">
+                </div>
+
+                <div class="mb-4">
+                  <label class="form-label small fw-600">Bio <span class="text-muted fw-normal">(optional · max 500 chars)</span></label>
+                  <textarea name="bio" class="form-control form-control-sm" rows="3"
+                            maxlength="500"
+                            placeholder="A short description about yourself...">{{ current_user.bio or '' }}</textarea>
+                </div>
+
+                <button type="submit" class="btn btn-accent px-4" style="border-radius:8px">
+                  <i class="bi bi-save me-2"></i>Save Changes
+                </button>
+              </form>
+            </div>
+
+            <!-- Tab: Password -->
+            <div id="tab-password" class="tab-pane">
+              {% if current_user.is_oauth_user() and not current_user.password_hash %}
+              <div class="alert alert-info" style="border-radius:10px;font-size:.85rem">
+                <i class="bi bi-info-circle me-2"></i>
+                You signed in with Microsoft. Password management is handled by your Microsoft account.
+              </div>
+              {% else %}
+              <form method="POST" action="{{ url_for('auth.profile') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="change_password">
+
+                <div class="mb-3">
+                  <label class="form-label small fw-600">Current Password</label>
+                  <div class="input-group">
+                    <input type="password" name="current_password" id="curPw"
+                           class="form-control form-control-sm"
+                           placeholder="Your current password" required>
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            style="border-radius:0 8px 8px 0;border-left:0"
+                            onclick="togglePw('curPw',this)" tabindex="-1">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-600">New Password</label>
+                  <div class="input-group">
+                    <input type="password" name="new_password"
+                           class="form-control form-control-sm"
+                           id="newPw" placeholder="Min. 8 characters" required>
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            style="border-radius:0 8px 8px 0;border-left:0"
+                            onclick="togglePw('newPw',this)" tabindex="-1">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                  <div style="height:4px;border-radius:2px;background:#e2e8f0;margin-top:5px;overflow:hidden">
+                    <div id="pwFill" style="height:100%;border-radius:2px;transition:all .3s;width:0%"></div>
+                  </div>
+                </div>
+                <div class="mb-4">
+                  <label class="form-label small fw-600">Confirm New Password</label>
+                  <div class="input-group">
+                    <input type="password" name="confirm_password"
+                           class="form-control form-control-sm"
+                           id="confirmPw" placeholder="Re-enter new password" required>
+                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                            style="border-radius:0 8px 8px 0;border-left:0"
+                            onclick="togglePw('confirmPw',this)" tabindex="-1">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                  <div id="matchMsg" style="font-size:.72rem;margin-top:3px"></div>
+                </div>
+
+                <div class="p-3 mb-3 rounded" style="background:#fef3c7;border:1px solid #fcd34d;font-size:.8rem">
+                  <strong>Password requirements:</strong>
+                  Minimum 8 characters. Include uppercase, numbers, and symbols for a strong password.
+                </div>
+
+                <button type="submit" class="btn btn-accent px-4" style="border-radius:8px">
+                  <i class="bi bi-lock-fill me-2"></i>Update Password
+                </button>
+              </form>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Tab switching ─────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── Avatar preview + auto-submit ──────────────────────────────
+document.getElementById('avatarInput').addEventListener('change', function () {
+  if (this.files && this.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      document.getElementById('avatarPreview').src = e.target.result;
+    };
+    reader.readAsDataURL(this.files[0]);
+
+    // Copy file to the infoForm hidden input and submit
+    const dt  = new DataTransfer();
+    dt.items.add(this.files[0]);
+    const hi = document.getElementById('hiddenAvatarInput');
+    hi.files = dt.files;
+    document.getElementById('infoForm').submit();
+  }
+});
+
+// ── Password toggle ─────────────────────────────────────────
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  const show = inp.type === 'password';
+  inp.type = show ? 'text' : 'password';
+  btn.innerHTML = show ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+}
+
+// ── Password strength (change tab) ────────────────────────────
+const newPw = document.getElementById('newPw');
+if (newPw) {
+  newPw.addEventListener('input', function () {
+    const pw = this.value;
+    let score = [pw.length>=8, /[A-Z]/.test(pw), /[0-9]/.test(pw), /[^A-Za-z0-9]/.test(pw)].filter(Boolean).length;
+    const c = ['','#ef4444','#f59e0b','#3b82f6','#22c55e'][score];
+    const w = ['0%','25%','50%','75%','100%'][score];
+    const fill = document.getElementById('pwFill');
+    fill.style.width = w; fill.style.background = c;
+  });
+  document.getElementById('confirmPw').addEventListener('input', function () {
+    const msg = document.getElementById('matchMsg');
+    if (this.value === newPw.value) {
+      msg.textContent='✓ Passwords match'; msg.style.color='#22c55e';
+    } else {
+      msg.textContent='✗ Does not match'; msg.style.color='#ef4444';
+    }
+  });
+}
+</script>
+{% endblock %}

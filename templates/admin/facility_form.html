@@ -1,0 +1,302 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if facility else 'Add' }} Facility{% endblock %}
+{% block page_title %}{{ 'Edit' if facility else 'Add' }} Facility{% endblock %}
+
+{% block extra_css %}
+<style>
+  .img-drop-zone {
+    border: 2px dashed #e2e8f0;
+    border-radius: 12px;
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+  }
+  .img-drop-zone:hover,
+  .img-drop-zone.dragover { border-color: #2563a8; background: #f0f6ff; }
+  .img-drop-zone input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .img-preview-wrap {
+    position: relative; display: inline-block; margin-top: 10px;
+  }
+  .img-preview-wrap img {
+    width: 100%; max-height: 220px; object-fit: cover;
+    border-radius: 10px; border: 1px solid #e2e8f0;
+  }
+  .img-remove-btn {
+    position: absolute; top: -8px; right: -8px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #ef4444; color: #fff; border: 2px solid #fff;
+    font-size: .75rem; cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .campus-chip {
+    display: inline-flex; align-items: center;
+    background: #e8f0fe; color: #1a3a5c;
+    border-radius: 100px; padding: 3px 12px;
+    font-size: .72rem; font-weight: 600; margin: 2px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-building me-2"></i>
+        {{ 'Edit: ' + facility.name if facility else 'Add New Facility' }}
+      </div>
+      <div class="card-body p-4">
+
+        <form method="POST"
+              enctype="multipart/form-data"
+              action="{{ url_for('facilities.edit_facility', facility_id=facility.id) if facility else url_for('facilities.add_facility') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="remove_image" value="0" id="removeImageFlag">
+
+          <!-- ── Facility Photo ────────────────────────────── -->
+          <div class="mb-4">
+            <label class="form-label small fw-600">
+              <i class="bi bi-image me-1"></i>Facility Photo
+              <span class="text-muted fw-normal">(PNG, JPG, WebP · max 5 MB)</span>
+            </label>
+
+            <!-- Existing image -->
+            {% if facility and facility.image_url %}
+            <div id="existingImgWrap" class="img-preview-wrap d-block mb-3">
+              <img src="{{ facility.image_url }}" alt="{{ facility.name }}" id="existingImg">
+              <button type="button" class="img-remove-btn" onclick="removeExistingImage()" title="Remove photo">✕</button>
+            </div>
+            {% endif %}
+
+            <!-- Drop zone (hidden if existing image shown) -->
+            <div class="img-drop-zone" id="dropZone"
+                 {% if facility and facility.image_url %}style="display:none"{% endif %}>
+              <input type="file" name="facility_image" id="imgInput"
+                     accept="image/png,image/jpeg,image/gif,image/webp"
+                     onchange="previewImage(this)">
+              <i class="bi bi-cloud-upload" style="font-size:2rem;color:#94a3b8"></i>
+              <div class="mt-2 small fw-600" style="color:#475569">
+                Drag & drop or <span style="color:#2563a8">browse</span>
+              </div>
+              <div class="text-muted" style="font-size:.72rem;margin-top:4px">
+                Recommended: landscape, min 800×520px
+              </div>
+            </div>
+
+            <!-- New image preview -->
+            <div id="newImgWrap" class="img-preview-wrap d-none">
+              <img id="newImgPreview" src="" alt="Preview">
+              <button type="button" class="img-remove-btn" onclick="clearNewImage()" title="Remove">✕</button>
+            </div>
+          </div>
+
+          <hr class="my-3" style="border-color:#f1f5f9">
+
+          <!-- ── Basic Info ────────────────────────────────── -->
+          <div class="mb-3">
+            <label class="form-label small fw-600">Facility Name <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control"
+                   value="{{ facility.name if facility else '' }}"
+                   placeholder="e.g. Computer Lab A" required>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-600">Type <span class="text-danger">*</span></label>
+              <select name="facility_type" class="form-control" required>
+                {% for val, label in [('lab','Lab'), ('hall','Hall'), ('sports','Sports'), ('lecture_room','Lecture Room')] %}
+                <option value="{{ val }}"
+                        {% if facility and facility.facility_type == val %}selected{% endif %}>
+                  {{ label }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-600">Capacity <span class="text-danger">*</span></label>
+              <input type="number" name="capacity" class="form-control"
+                     value="{{ facility.capacity if facility else '' }}"
+                     placeholder="30" min="1" required>
+            </div>
+          </div>
+
+          <!-- ── Campus ────────────────────────────────────── -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label small fw-600">
+                <i class="bi bi-geo-alt me-1"></i>DUT Campus <span class="text-danger">*</span>
+              </label>
+              <select name="campus" class="form-control" required id="campusSelect">
+                <option value="">— Select campus —</option>
+                {% for c in campuses %}
+                <option value="{{ c }}"
+                        {% if facility and facility.campus == c %}selected{% endif %}>
+                  {{ c }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label small fw-600">
+                Room / Block <span class="text-danger">*</span>
+              </label>
+              <input type="text" name="location" class="form-control"
+                     value="{{ facility.location if facility else '' }}"
+                     placeholder="e.g. Block A, Room 101" required>
+            </div>
+          </div>
+
+          <!-- Campus quick-chips -->
+          <div class="mb-3">
+            <div class="small text-muted mb-1" style="font-size:.72rem">Quick select campus:</div>
+            {% for c in campuses %}
+            <span class="campus-chip" onclick="selectCampus('{{ c }}')" style="cursor:pointer">
+              {{ c }}
+            </span>
+            {% endfor %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-600">Description</label>
+            <textarea name="description" class="form-control" rows="2"
+                      placeholder="Brief description of the facility...">{{ facility.description if facility else '' }}</textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-600">Equipment / Resources</label>
+            <input type="text" name="equipment" class="form-control"
+                   value="{{ facility.equipment if facility else '' }}"
+                   placeholder="Projector, Whiteboard, WiFi">
+            <div class="form-text small">Separate items with commas</div>
+          </div>
+
+          {% if facility %}
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_available" id="isAvailable"
+                     {{ 'checked' if facility.is_available else '' }}>
+              <label class="form-check-label small fw-600" for="isAvailable">
+                Available for booking
+              </label>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- ── External booking settings ─────────────────── -->
+          <hr class="my-3" style="border-color:#f1f5f9">
+          <div class="mb-2">
+            <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:#94a3b8;font-weight:700;font-family:monospace">
+              External / Public Booking
+            </div>
+          </div>
+          <div class="mb-3 p-3 rounded" style="background:#fef3c7;border:1px solid #fcd34d">
+            <div class="form-check form-switch mb-2">
+              <input class="form-check-input" type="checkbox" name="allow_external"
+                     id="allowExternal" role="switch"
+                     {{ 'checked' if (facility and facility.allow_external) else '' }}
+                     onchange="togglePriceField(this.checked)">
+              <label class="form-check-label small fw-600" for="allowExternal" style="color:#92400e">
+                <i class="bi bi-globe me-1"></i>Allow external members to book this facility
+              </label>
+            </div>
+            <div class="small text-muted" style="font-size:.75rem;color:#78350f">
+              When enabled, external (non-DUT) users can add this facility to their cart and pay via PayFast.
+            </div>
+          </div>
+
+          <div class="mb-4" id="priceFieldWrap"
+               style="{{ '' if (facility and facility.allow_external) else 'display:none' }}">
+            <label class="form-label small fw-600">
+              Price per Hour (ZAR) <span class="text-danger">*</span>
+            </label>
+            <div class="input-group" style="max-width:220px">
+              <span class="input-group-text" style="font-size:.85rem;border-radius:8px 0 0 8px">R</span>
+              <input type="number" name="price_per_hour" class="form-control"
+                     id="pricePerHour" step="0.01" min="0"
+                     value="{{ facility.price_per_hour if facility and facility.price_per_hour else '' }}"
+                     placeholder="e.g. 150.00"
+                     style="border-radius:0 8px 8px 0">
+            </div>
+            <div class="form-text small">Charged per hour to external members at checkout.</div>
+          </div>
+
+          <!-- ── External booking (add form) ─────────────── -->
+ 
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-accent px-4" style="border-radius:8px">
+              <i class="bi bi-check me-2"></i>{{ 'Save Changes' if facility else 'Add Facility' }}
+            </button>
+            <a href="{{ url_for('facilities.list_facilities') }}"
+               class="btn btn-outline-secondary px-4" style="border-radius:8px">Cancel</a>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function togglePriceField(show) {
+  const wrap  = document.getElementById('priceFieldWrap');
+  const input = document.getElementById('pricePerHour');
+  if (wrap) wrap.style.display = show ? '' : 'none';
+  if (input) input.required = show;
+}
+</script>
+<script>
+// ── Campus quick-select chips ─────────────────────────────────
+function selectCampus(name) {
+  document.getElementById('campusSelect').value = name;
+}
+
+// ── Image preview ─────────────────────────────────────────────
+function previewImage(input) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('newImgPreview').src = e.target.result;
+    document.getElementById('newImgWrap').classList.remove('d-none');
+    document.getElementById('dropZone').style.display = 'none';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function clearNewImage() {
+  document.getElementById('newImgWrap').classList.add('d-none');
+  document.getElementById('dropZone').style.display = '';
+  document.getElementById('imgInput').value = '';
+}
+
+function removeExistingImage() {
+  document.getElementById('existingImgWrap').style.display = 'none';
+  document.getElementById('dropZone').style.display = '';
+  document.getElementById('removeImageFlag').value = '1';
+}
+
+// ── Drag & drop highlight ─────────────────────────────────────
+const zone = document.getElementById('dropZone');
+if (zone) {
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const dt    = new DataTransfer();
+    const file  = e.dataTransfer.files[0];
+    if (!file) return;
+    dt.items.add(file);
+    const input = document.getElementById('imgInput');
+    input.files = dt.files;
+    previewImage(input);
+  });
+}
+</script>
+{% endblock %}

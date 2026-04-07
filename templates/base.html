@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Campus Booking{% endblock %} | Dev Squad</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════════
+     OVERLAY (mobile/tablet)
+════════════════════════════════════════════════════════════ -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SIDEBAR
+════════════════════════════════════════════════════════════ -->
+<aside class="sidebar" id="sidebar" role="navigation" aria-label="Main navigation">
+
+  <!-- Brand -->
+  <div class="sidebar-brand">
+    <div class="brand-icon">🏫</div>
+    <div class="brand-text">
+      <div class="brand-title">Campus Booking</div>
+      <div class="brand-sub">Dev Squad · Group 40</div>
+    </div>
+  </div>
+
+  <!-- Nav links -->
+  <nav class="sidebar-nav">
+
+    <div class="nav-section-label">Menu</div>
+
+    <a href="{{ url_for('main.dashboard') }}"
+       class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-speedometer2"></i></span>
+      <span class="nav-label">Dashboard</span>
+      <span class="nav-tooltip">Dashboard</span>
+    </a>
+
+    <a href="{{ url_for('facilities.list_facilities') }}"
+       class="nav-link {% if request.endpoint in ['facilities.list_facilities','facilities.facility_detail'] %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-building"></i></span>
+      <span class="nav-label">Facilities</span>
+      <span class="nav-tooltip">Facilities</span>
+    </a>
+
+    {% if not current_user.is_admin() %}
+    <a href="{{ url_for('bookings.create_booking') }}"
+       class="nav-link {% if request.endpoint == 'bookings.create_booking' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-plus-circle"></i></span>
+      <span class="nav-label">New Booking</span>
+      <span class="nav-tooltip">New Booking</span>
+    </a>
+
+    <a href="{{ url_for('bookings.list_bookings') }}"
+       class="nav-link {% if request.endpoint == 'bookings.list_bookings' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-calendar3"></i></span>
+      <span class="nav-label">My Bookings</span>
+      <span class="nav-tooltip">My Bookings</span>
+    </a>
+
+    <a href="{{ url_for('bookings.calendar_view') }}"
+       class="nav-link {% if request.endpoint == 'bookings.calendar_view' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-calendar-week"></i></span>
+      <span class="nav-label">Calendar</span>
+      <span class="nav-tooltip">Calendar</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_admin() %}
+    <div class="nav-section-label mt-2">Admin</div>
+
+    <a href="{{ url_for('admin.manage_requests') }}"
+       class="nav-link {% if request.endpoint == 'admin.manage_requests' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-clipboard-check"></i></span>
+      <span class="nav-label">Requests</span>
+      <span class="nav-tooltip">Requests</span>
+    </a>
+
+    <a href="{{ url_for('bookings.list_bookings') }}"
+       class="nav-link {% if request.endpoint == 'bookings.list_bookings' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-list-ul"></i></span>
+      <span class="nav-label">All Bookings</span>
+      <span class="nav-tooltip">All Bookings</span>
+    </a>
+
+    <a href="{{ url_for('analytics.reports') }}"
+       class="nav-link {% if request.endpoint == 'analytics.reports' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-bar-chart-line"></i></span>
+      <span class="nav-label">Analytics</span>
+      <span class="nav-tooltip">Analytics</span>
+    </a>
+
+    <a href="{{ url_for('admin.manage_users') }}"
+       class="nav-link {% if request.endpoint == 'admin.manage_users' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-people"></i></span>
+      <span class="nav-label">Users</span>
+      <span class="nav-tooltip">Users</span>
+    </a>
+
+    <a href="{{ url_for('facilities.add_facility') }}"
+       class="nav-link {% if request.endpoint == 'facilities.add_facility' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-plus-square"></i></span>
+      <span class="nav-label">Add Facility</span>
+      <span class="nav-tooltip">Add Facility</span>
+    </a>
+    <a href="{{ url_for('admin.payment_orders_list') }}"
+       class="nav-link {% if request.endpoint in ['admin.payment_orders_list','admin.payment_order_detail'] %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-credit-card"></i></span>
+      <span class="nav-label">Payments</span>
+      <span class="nav-tooltip">Payments</span>
+    </a>
+    <a href="{{ url_for('admin.attendance') }}"
+       class="nav-link {% if request.endpoint == 'admin.attendance' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-person-check"></i></span>
+      <span class="nav-label">Attendance</span>
+      <span class="nav-tooltip">Attendance</span>
+    </a>
+    {% endif %}
+
+    {% if current_user.is_authenticated and current_user.is_staff() %}
+    <div class="nav-section-label mt-2">Check-in</div>
+    <a href="{{ url_for('checkin.scan_page') }}"
+       class="nav-link {% if request.endpoint == 'checkin.scan_page' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-qr-code-scan"></i></span>
+      <span class="nav-label">Scan QR</span>
+      <span class="nav-tooltip">Scan QR</span>
+    </a>
+    {% endif %}
+
+    <div class="nav-section-label mt-2">Account</div>
+
+    {% if current_user.is_authenticated and current_user.is_external() %}
+    <a href="{{ url_for('cart.view_cart') }}"
+       class="nav-link position-relative {% if request.endpoint == 'cart.view_cart' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-cart3"></i></span>
+      <span class="nav-label">My Cart</span>
+      <span class="nav-tooltip">My Cart</span>
+      <span class="notif-badge d-none" id="cartBadgeSide"
+            style="background:#e8a020;color:#1a3a5c">0</span>
+    </a>
+    {% endif %}
+    <a href="{{ url_for('notifications.list_notifications') }}"
+       class="nav-link position-relative {% if request.endpoint == 'notifications.list_notifications' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon"><i class="bi bi-bell"></i></span>
+      <span class="nav-label">Notifications</span>
+      <span class="nav-tooltip">Notifications</span>
+      <span class="notif-badge d-none" id="notifBadge">0</span>
+    </a>
+
+    <a href="{{ url_for('auth.profile') }}"
+       class="nav-link {% if request.endpoint == 'auth.profile' %}active{% endif %}"
+       onclick="closeSidebarOnMobile()">
+      <span class="nav-icon">
+        <img src="{{ current_user.avatar_url }}" alt="avatar"
+             style="width:22px;height:22px;border-radius:50%;object-fit:cover;border:1.5px solid rgba(255,255,255,.3)">
+      </span>
+      <span class="nav-label">My Profile</span>
+      <span class="nav-tooltip">My Profile</span>
+    </a>
+
+    <a href="{{ url_for('auth.logout') }}" class="nav-link">
+      <span class="nav-icon"><i class="bi bi-box-arrow-right"></i></span>
+      <span class="nav-label">Logout</span>
+      <span class="nav-tooltip">Logout</span>
+    </a>
+
+  </nav>
+
+  <!-- User footer -->
+  <div class="sidebar-footer">
+    <div class="user-chip">
+      <img src="{{ current_user.avatar_url }}" alt="avatar" class="user-avatar">
+      <div class="user-info">
+        <div class="user-name">{{ current_user.full_name }}</div>
+        <div class="user-role">{{ current_user.role }}</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ════════════════════════════════════════════════════════════
+     MAIN CONTENT
+════════════════════════════════════════════════════════════ -->
+<div class="main-content" id="mainContent">
+
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <!-- Hamburger (hidden on desktop via CSS) -->
+      <button class="sidebar-toggle" id="sidebarToggle"
+              aria-label="Toggle navigation" aria-expanded="false"
+              aria-controls="sidebar">
+        <i class="bi bi-list" id="toggleIcon"></i>
+      </button>
+      <div class="page-title">{% block page_title %}{% endblock %}</div>
+    </div>
+
+    <div class="topbar-right">
+      <span class="small text-muted topbar-student-number"
+            style="font-family:'JetBrains Mono',monospace;font-size:.72rem">
+        {{ current_user.student_number }}
+      </span>
+      {% if current_user.is_authenticated and current_user.is_external() %}
+      <a href="{{ url_for('cart.view_cart') }}"
+         class="btn btn-sm btn-outline-secondary position-relative" style="border-radius:8px"
+         title="My Cart">
+        <i class="bi bi-cart3"></i>
+        <span class="notif-badge d-none" id="cartBadge"
+              style="background:#e8a020;color:#1a3a5c">0</span>
+      </a>
+      {% endif %}
+      <a href="{{ url_for('notifications.list_notifications') }}"
+         class="btn btn-sm btn-outline-secondary position-relative" style="border-radius:8px"
+         title="Notifications">
+        <i class="bi bi-bell"></i>
+        <span class="notif-badge d-none" id="notifBadge2">0</span>
+      </a>
+      <!-- Avatar shortcut (topbar, mobile) -->
+      <a href="{{ url_for('auth.profile') }}" class="d-md-none">
+        <img src="{{ current_user.avatar_url }}" alt="profile"
+             style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid #e5e9ef">
+      </a>
+    </div>
+  </header>
+
+  <!-- Page body -->
+  <main class="page-body">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show mb-3"
+               style="border-radius:10px;font-size:.88rem" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BOTTOM NAV (mobile only)
+════════════════════════════════════════════════════════════ -->
+<nav class="bottom-nav" aria-label="Quick navigation">
+  <div class="bottom-nav-inner">
+    <a href="{{ url_for('main.dashboard') }}"
+       class="bottom-nav-item {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+      <i class="bi bi-speedometer2"></i>
+      <span>Home</span>
+    </a>
+
+    <a href="{{ url_for('facilities.list_facilities') }}"
+       class="bottom-nav-item {% if request.endpoint == 'facilities.list_facilities' %}active{% endif %}">
+      <i class="bi bi-building"></i>
+      <span>Facilities</span>
+    </a>
+
+    {% if current_user.is_authenticated and current_user.is_external() %}
+    <a href="{{ url_for('cart.view_cart') }}"
+       class="bottom-nav-item {% if request.endpoint == 'cart.view_cart' %}active{% endif %}"
+       style="color:#fff">
+      <span style="background:var(--accent);border-radius:50%;width:46px;height:46px;display:flex;align-items:center;justify-content:center;margin-top:-14px;box-shadow:0 4px 14px rgba(232,160,32,.4);position:relative">
+        <i class="bi bi-cart3" style="font-size:1.2rem;color:#1a3a5c"></i>
+        <span id="cartBadgeBottom" style="display:none;position:absolute;top:-4px;right:-4px;background:#dc3545;color:#fff;font-size:.55rem;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;border:2px solid var(--bg)">0</span>
+      </span>
+      <span style="color:var(--primary);margin-top:2px">Cart</span>
+    </a>
+    {% elif not current_user.is_admin() %}
+    <a href="{{ url_for('bookings.create_booking') }}"
+       class="bottom-nav-item {% if request.endpoint == 'bookings.create_booking' %}active{% endif %}"
+       style="color:#fff">
+      <span style="background:var(--primary);border-radius:50%;width:46px;height:46px;display:flex;align-items:center;justify-content:center;margin-top:-14px;box-shadow:0 4px 14px rgba(26,58,92,.35)">
+        <i class="bi bi-plus-lg" style="font-size:1.4rem"></i>
+      </span>
+      <span style="color:var(--primary);margin-top:2px">Book</span>
+    </a>
+    {% else %}
+    <a href="{{ url_for('admin.manage_requests') }}"
+       class="bottom-nav-item {% if request.endpoint == 'admin.manage_requests' %}active{% endif %}">
+      <i class="bi bi-clipboard-check"></i>
+      <span>Requests</span>
+    </a>
+    {% endif %}
+
+    <a href="{{ url_for('notifications.list_notifications') }}"
+       class="bottom-nav-item bottom-nav-more {% if request.endpoint == 'notifications.list_notifications' %}active{% endif %}">
+      <i class="bi bi-bell"></i>
+      <span class="notif-dot" id="bottomNavDot"></span>
+      <span>Alerts</span>
+    </a>
+
+    <a href="#" class="bottom-nav-item" onclick="openSidebar(); return false;">
+      <i class="bi bi-list"></i>
+      <span>More</span>
+    </a>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════════════════ -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

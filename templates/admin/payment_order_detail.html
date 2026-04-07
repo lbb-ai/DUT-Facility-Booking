@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Order {{ order.reference }}{% endblock %}
+{% block page_title %}Payment Order Detail{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+
+    <!-- Status banner -->
+    <div class="alert alert-{% if order.status == 'paid' %}success{% elif order.status == 'pending' %}warning{% else %}danger{% endif %} mb-3" style="border-radius:10px">
+      <i class="bi bi-{% if order.status == 'paid' %}check-circle{% elif order.status == 'pending' %}hourglass-split{% else %}x-circle{% endif %} me-2"></i>
+      Order is <strong>{{ order.status|title }}</strong>
+      {% if order.paid_at %} — paid {{ order.paid_at.strftime('%d %b %Y at %H:%M') }}{% endif %}
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span><i class="bi bi-receipt me-2"></i>{{ order.reference }}</span>
+        <span class="small text-muted">{{ order.created_at.strftime('%d %b %Y') }}</span>
+      </div>
+      <div class="card-body">
+        <!-- Member info -->
+        <div class="row g-3 mb-4">
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0">
+              <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;font-weight:700">Member</div>
+              <div class="fw-700 mt-1" style="color:#1a3a5c">{{ order.user.full_name }}</div>
+              <div class="small text-muted">{{ order.user.email }}</div>
+              {% if order.user.organisation %}
+              <div class="small text-muted">{{ order.user.organisation }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <div class="col-sm-6">
+            <div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0">
+              <div style="font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;font-weight:700">Total Paid</div>
+              <div class="fw-700 mt-1" style="color:#1a3a5c;font-size:1.4rem;font-family:'JetBrains Mono',monospace">
+                R{{ "%.2f"|format(order.amount_total) }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Line items -->
+        <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;font-weight:700;margin-bottom:8px">Booked Facilities</div>
+        {% for li in order.line_items %}
+        <div class="p-3 rounded mb-2" style="background:#f8fafc;border:1px solid #e2e8f0">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="fw-700 small" style="color:#1a3a5c">{{ li.title }}</div>
+              <div class="small text-muted">{{ li.facility.name }}{% if li.facility.campus %} · {{ li.facility.campus }}{% endif %}</div>
+              <div class="small mt-1" style="font-family:'JetBrains Mono',monospace;font-size:.72rem">
+                {{ li.booking_date.strftime('%a, %d %b %Y') }} · {{ li.start_time.strftime('%H:%M') }}–{{ li.end_time.strftime('%H:%M') }}
+                ({{ li.duration_hours }}h) · {{ li.attendees }} attendee{{ 's' if li.attendees != 1 }}
+              </div>
+            </div>
+            <div class="text-end">
+              <div class="fw-700 small" style="font-family:'JetBrains Mono',monospace">R{{ "%.2f"|format(li.price) }}</div>
+              {% if li.booking_id %}
+              <span class="badge rounded-pill" style="background:#d1fae5;color:#065f46;font-size:.65rem">Booking #{{ li.booking_id }}</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <a href="{{ url_for('admin.payment_orders_list') }}" class="btn btn-outline-secondary btn-sm" style="border-radius:8px">
+      <i class="bi bi-arrow-left me-1"></i>Back to Orders
+    </a>
+  </div>
+</div>
+{% endblock %}

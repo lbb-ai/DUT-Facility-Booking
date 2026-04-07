@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users{% endblock %}
+{% block page_title %}Manage Users{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-people me-2"></i>All Users</span>
+    <span class="small text-muted">{{ users|length }} total</span>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="small">Name</th>
+            <th class="small">Student No.</th>
+            <th class="small">Email</th>
+            <th class="small">Role</th>
+            <th class="small">Status</th>
+            <th class="small">Joined</th>
+            <th class="small">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for u in users %}
+        <tr>
+          <td class="small fw-600" style="color:#1a3a5c">{{ u.full_name }}</td>
+          <td class="small" style="font-family:'JetBrains Mono',monospace">{{ u.student_number }}</td>
+          <td class="small text-muted">{{ u.email }}</td>
+          <td>
+            <span class="badge rounded-pill px-2 py-1"
+                  style="font-size:.68rem;
+                    {% if u.role == 'admin' %}background:#fde8e8;color:#9b1c1c
+                    {% elif u.role == 'external' %}background:#fef3c7;color:#92400e
+                    {% elif u.role == 'staff' %}background:#e8f0fe;color:#1a3a5c
+                    {% else %}background:#f3f4f6;color:#374151{% endif %}">
+              {{ u.role|title }}
+            </span>
+          </td>
+          <td>
+            <span class="badge rounded-pill px-2 py-1"
+                  style="font-size:.68rem;{% if u.is_active %}background:#d1fae5;color:#065f46{% else %}background:#fde8e8;color:#9b1c1c{% endif %}">
+              {{ 'Active' if u.is_active else 'Inactive' }}
+            </span>
+          </td>
+          <td class="small text-muted">{{ u.created_at.strftime('%d %b %Y') }}</td>
+          <td>
+            {% if u.id != current_user.id %}
+            <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.id) }}"
+                  onsubmit="return confirm('{{ 'Deactivate' if u.is_active else 'Activate' }} {{ u.full_name }}?')">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit"
+                      class="btn btn-sm {% if u.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}"
+                      style="font-size:.72rem;border-radius:6px">
+                {{ 'Deactivate' if u.is_active else 'Activate' }}
+              </button>
+            </form>
+            {% else %}
+            <span class="small text-muted">You</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-5 small">No users found.</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

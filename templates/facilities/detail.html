@@ -1,0 +1,497 @@
+{% extends 'base.html' %}
+{% block title %}{{ facility.name }}{% endblock %}
+{% block page_title %}{{ facility.name }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- Left: facility info -->
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-body p-3">
+        <!-- Facility photo -->
+        {% if facility.image_url %}
+        <div class="mb-3" style="margin:-12px -12px 12px;border-radius:10px 10px 0 0;overflow:hidden">
+          <img src="{{ facility.image_url }}" alt="{{ facility.name }}"
+               style="width:100%;height:160px;object-fit:cover">
+        </div>
+        {% endif %}
+
+        <span class="badge rounded-pill mb-2 px-2 py-1"
+              style="font-size:.68rem;background:
+                {% if facility.facility_type == 'lab' %}#e8f0fe;color:#1a3a5c
+                {% elif facility.facility_type == 'hall' %}#fef3c7;color:#92400e
+                {% elif facility.facility_type == 'sports' %}#d1fae5;color:#065f46
+                {% else %}#fde8e8;color:#9b1c1c{% endif %}">
+          {{ facility.facility_type|replace('_',' ')|title }}
+        </span>
+
+        <h5 class="fw-700 mb-1" style="color:#1a3a5c">{{ facility.name }}</h5>
+        {% if facility.campus %}
+        <div class="mb-1">
+          <span style="background:#e8f0fe;color:#1a3a5c;font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:100px">
+            <i class="bi bi-geo-alt-fill me-1" style="font-size:.6rem"></i>{{ facility.campus }}
+          </span>
+        </div>
+        {% endif %}
+        <div class="small text-muted mb-3">
+          <i class="bi bi-geo-alt me-1"></i>{{ facility.location }}
+        </div>
+
+        {% if facility.avg_rating %}
+        <div class="mb-3 p-3 rounded" style="background:#fef3c7;border:1px solid #fcd34d">
+          <!-- Big score -->
+          <div class="d-flex align-items-center gap-3 mb-2">
+            <div style="font-size:2.2rem;font-weight:800;color:#92400e;font-family:'JetBrains Mono',monospace;line-height:1">
+              {{ facility.avg_rating }}
+            </div>
+            <div>
+              <div style="color:#e8a020;font-size:1.1rem;letter-spacing:2px">
+                {% for i in range(1,6) %}
+                  {% if i <= facility.avg_rating|int %}★{% elif i <= facility.avg_rating|round(0,'ceil')|int and (facility.avg_rating % 1) >= 0.5 %}★{% else %}☆{% endif %}
+                {% endfor %}
+              </div>
+              <div class="small fw-600" style="color:#92400e">{{ total_reviews }} review{{ 's' if total_reviews != 1 }}</div>
+            </div>
+          </div>
+          <!-- Star breakdown bars -->
+          {% for star in [5,4,3,2,1] %}
+          {% set cnt = rating_breakdown.get(star, 0) %}
+          {% set pct = ((cnt / total_reviews) * 100)|round(0)|int if total_reviews > 0 else 0 %}
+          <div class="d-flex align-items-center gap-2 mb-1" style="font-size:.72rem">
+            <span style="color:#92400e;font-weight:600;width:8px">{{ star }}</span>
+            <span style="color:#e8a020;font-size:.7rem">★</span>
+            <div style="flex:1;height:6px;background:rgba(0,0,0,.1);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:{{ pct }}%;background:#e8a020;border-radius:3px"></div>
+            </div>
+            <span style="color:#78350f;width:18px;text-align:right">{{ cnt }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <table class="table table-borderless table-sm mb-3">
+          <tr>
+            <td class="small text-muted fw-600">Capacity</td>
+            <td class="small fw-700" style="color:#1a3a5c">{{ facility.capacity }} people</td>
+          </tr>
+          <tr>
+            <td class="small text-muted fw-600">Status</td>
+            <td>
+              <span class="badge rounded-pill px-2"
+                    style="font-size:.7rem;{% if facility.is_available %}background:#d1fae5;color:#065f46{% else %}background:#fde8e8;color:#9b1c1c{% endif %}">
+                {{ 'Available' if facility.is_available else 'Unavailable' }}
+              </span>
+            </td>
+          </tr>
+        </table>
+
+        {% if facility.description %}
+        <p class="small text-muted mb-3" style="line-height:1.6">{{ facility.description }}</p>
+        {% endif %}
+
+        <!-- Equipment -->
+        {% if facility.equipment_list %}
+        <div class="mb-3">
+          <div class="small fw-600 mb-2" style="color:#475569">Equipment & Resources</div>
+          {% for eq in facility.equipment_list %}
+          <span class="badge bg-light text-secondary me-1 mb-1"
+                style="font-size:.72rem;border:1px solid #e2e8f0">
+            <i class="bi bi-check me-1"></i>{{ eq }}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if facility.is_available %}
+          {% if current_user.is_authenticated and current_user.is_external() %}
+            {% if facility.allow_external and facility.price_per_hour %}
+            <!-- External: show price + Add to Cart form -->
+            <div class="p-2 mb-3 rounded" style="background:#fef3c7;border:1px solid #fcd34d">
+              <div class="small fw-700" style="color:#92400e">
+                <i class="bi bi-cash me-1"></i>R{{ "%.2f"|format(facility.price_per_hour) }} per hour
+              </div>
+              <div class="small text-muted" style="font-size:.72rem">PayFast payment required at checkout</div>
+            </div>
+            <a href="#bookForm" class="btn btn-accent d-grid mb-2" style="border-radius:8px">
+              <i class="bi bi-cart-plus me-2"></i>Add to Cart
+            </a>
+            {% else %}
+            <div class="alert alert-warning small py-2 mb-2" style="border-radius:8px">
+              This facility is not available for external bookings.
+            </div>
+            {% endif %}
+          {% elif current_user.is_authenticated %}
+          <a href="{{ url_for('bookings.create_booking') }}"
+             class="btn btn-accent d-grid" style="border-radius:8px">
+            <i class="bi bi-plus me-2"></i>Book This Facility
+          </a>
+          {% else %}
+          <a href="{{ url_for('auth.login') }}"
+             class="btn btn-outline-primary d-grid mb-2" style="border-radius:8px">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Login to Book
+          </a>
+          {% if facility.allow_external %}
+          <a href="{{ url_for('auth.register') }}"
+             class="btn btn-outline-secondary d-grid" style="border-radius:8px;font-size:.82rem">
+            <i class="bi bi-globe me-2"></i>Register as External Member
+          </a>
+          {% endif %}
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <a href="{{ url_for('facilities.list_facilities') }}"
+       class="btn btn-outline-secondary btn-sm w-100" style="border-radius:8px">
+      <i class="bi bi-arrow-left me-1"></i>Back to Facilities
+    </a>
+  </div>
+
+  <!-- Right: schedule + reviews -->
+  <div class="col-lg-8">
+
+    <!-- Today's schedule -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="bi bi-calendar-day me-2"></i>Today's Schedule
+        <span class="text-muted small ms-2">({{ today.strftime('%d %b %Y') }})</span>
+      </div>
+      <div class="card-body p-0">
+        {% if todays_bookings %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="small">Time</th>
+                <th class="small">Title</th>
+                <th class="small">Attendees</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for b in todays_bookings %}
+            <tr>
+              <td class="small" style="font-family:'JetBrains Mono',monospace">
+                {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}
+              </td>
+              <td class="small fw-600" style="color:#1a3a5c">{{ b.title }}</td>
+              <td class="small text-muted">{{ b.attendees }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted small">
+          <i class="bi bi-calendar-check d-block mb-1" style="font-size:1.5rem;opacity:.3"></i>
+          No bookings today — facility is free!
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Upcoming 7 days -->
+    {% if upcoming %}
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-calendar-week me-2"></i>Next 7 Days</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th class="small">Date</th>
+                <th class="small">Time</th>
+                <th class="small">Title</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for b in upcoming %}
+            <tr>
+              <td class="small fw-600">{{ b.booking_date.strftime('%a, %d %b') }}</td>
+              <td class="small" style="font-family:'JetBrains Mono',monospace">
+                {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}
+              </td>
+              <td class="small text-muted">{{ b.title }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Reviews section -->
+    <div class="card" id="reviews">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-star me-2"></i>Reviews
+          {% if total_reviews > 0 %}
+          <span class="badge rounded-pill ms-1 px-2"
+                style="background:#fef3c7;color:#92400e;font-size:.68rem">
+            {{ total_reviews }}
+          </span>
+          {% endif %}
+        </span>
+        {% if current_user.is_authenticated and can_write_review %}
+        <button class="btn btn-sm btn-accent" style="border-radius:8px;font-size:.75rem"
+                onclick="toggleReviewForm()">
+          <i class="bi bi-pencil-square me-1"></i>
+          {{ 'Edit Your Review' if user_review else 'Write a Review' }}
+        </button>
+        {% elif not current_user.is_authenticated %}
+        <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-secondary"
+           style="border-radius:8px;font-size:.75rem">
+          <i class="bi bi-box-arrow-in-right me-1"></i>Log in to Review
+        </a>
+        {% endif %}
+      </div>
+
+      <!-- Write / Edit review form -->
+      {% if current_user.is_authenticated and can_write_review %}
+      <div id="reviewForm" style="display:none;border-bottom:1px solid #e2e8f0">
+        <div class="p-4">
+          <form method="POST"
+                action="{{ url_for('facilities.submit_review', facility_id=facility.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Interactive star picker -->
+            <div class="mb-3">
+              <label class="form-label small fw-600">Your Rating
+                <span class="text-danger">*</span>
+              </label>
+              <div class="d-flex gap-1 align-items-center" id="starPicker">
+                {% for i in range(1, 6) %}
+                <input type="radio" name="rating" id="rstar{{ i }}" value="{{ i }}"
+                       class="d-none"
+                       {{ 'checked' if user_review and user_review.rating == i }}>
+                <label for="rstar{{ i }}"
+                       class="star-label"
+                       style="font-size:2rem;color:#e2e8f0;cursor:pointer;
+                              transition:color .1s;line-height:1;padding:0 2px"
+                       onmouseover="hoverStars({{ i }})"
+                       onmouseout="resetStars()"
+                       onclick="selectStar({{ i }})">★</label>
+                {% endfor %}
+                <span id="starLabel" class="small text-muted ms-2"></span>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label small fw-600">
+                Comment <span class="text-muted fw-normal">(optional)</span>
+              </label>
+              <textarea name="comment" class="form-control form-control-sm" rows="3"
+                        placeholder="Share your experience with this facility...">{{ user_review.comment if user_review and user_review.comment else '' }}</textarea>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-accent btn-sm" style="border-radius:8px">
+                <i class="bi bi-star-fill me-1"></i>
+                {{ 'Update Review' if user_review else 'Submit Review' }}
+              </button>
+              <button type="button" class="btn btn-outline-secondary btn-sm"
+                      style="border-radius:8px" onclick="toggleReviewForm()">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- User's own review highlight -->
+      {% if current_user.is_authenticated and user_review %}
+      <div class="p-3" style="background:#fffbeb;border-bottom:1px solid #fcd34d">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="small fw-700 mb-1" style="color:#92400e">
+              <i class="bi bi-person-fill me-1"></i>Your Review
+            </div>
+            <div style="color:#e8a020;font-size:1rem;letter-spacing:2px">
+              {{ '★' * user_review.rating }}{{ '☆' * (5 - user_review.rating) }}
+            </div>
+            {% if user_review.comment %}
+            <p class="small text-muted mb-0 mt-1">{{ user_review.comment }}</p>
+            {% endif %}
+            <div style="font-size:.68rem;color:#94a3b8;font-family:'JetBrains Mono',monospace;margin-top:4px">
+              {{ user_review.created_at.strftime('%d %b %Y') }}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- All reviews list -->
+      <div class="card-body p-0">
+        {% if reviews %}
+          {% for r in reviews %}
+          {% if not (current_user.is_authenticated and user_review and r.id == user_review.id) %}
+          <div class="p-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-start mb-1">
+              <div>
+                <div class="small fw-600" style="color:#1a3a5c">{{ r.user.full_name }}</div>
+                {% if r.user.organisation %}
+                <div style="font-size:.65rem;color:#94a3b8">{{ r.user.organisation }}</div>
+                {% endif %}
+              </div>
+              <span style="color:#e8a020;font-size:.9rem;letter-spacing:1px">
+                {{ '★' * r.rating }}{{ '☆' * (5 - r.rating) }}
+              </span>
+            </div>
+            {% if r.comment %}
+            <p class="small text-muted mb-1" style="line-height:1.5">{{ r.comment }}</p>
+            {% endif %}
+            <div style="font-size:.68rem;color:#94a3b8;font-family:'JetBrains Mono',monospace">
+              {{ r.created_at.strftime('%d %b %Y') }}
+            </div>
+          </div>
+          {% endif %}
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-4 text-muted small">
+            <i class="bi bi-chat-square-text d-block mb-1" style="font-size:1.5rem;opacity:.3"></i>
+            No reviews yet — be the first to review this facility.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Add to Cart form (external users only) ──────────────── -->
+{% if current_user.is_authenticated and current_user.is_external() and facility.allow_external and facility.is_available %}
+<div class="row justify-content-center mt-4" id="bookForm">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-cart-plus me-2"></i>Add to Cart
+        <span class="float-end small text-muted">R{{ "%.2f"|format(facility.price_per_hour) }}/hr</span>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('cart.add_to_cart') }}" id="cartForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="facility_id" value="{{ facility.id }}">
+
+          <div class="mb-3">
+            <label class="form-label small fw-600">Booking Title <span class="text-danger">*</span></label>
+            <input type="text" name="title" class="form-control" placeholder="e.g. Corporate Training" required>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-4">
+              <label class="form-label small fw-600">Date <span class="text-danger">*</span></label>
+              <input type="date" name="booking_date" class="form-control" id="cartDate" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-600">Start Time <span class="text-danger">*</span></label>
+              <input type="time" name="start_time" class="form-control" id="cartStart" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label small fw-600">End Time <span class="text-danger">*</span></label>
+              <input type="time" name="end_time" class="form-control" id="cartEnd" required>
+            </div>
+          </div>
+
+          <!-- Live price preview -->
+          <div class="mb-3 p-3 rounded" id="pricePreview" style="background:#f0f4ff;border:1px solid #c7d7f0;display:none">
+            <div class="d-flex justify-content-between align-items-center">
+              <div class="small text-muted">Estimated cost</div>
+              <div class="fw-700" style="color:#1a3a5c;font-family:'JetBrains Mono',monospace;font-size:1.1rem" id="priceDisplay">R0.00</div>
+            </div>
+            <div class="small text-muted mt-1" id="hoursDisplay"></div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label small fw-600">Attendees <span class="text-danger">*</span></label>
+            <input type="number" name="attendees" class="form-control" value="1" min="1" max="{{ facility.capacity }}" required>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label small fw-600">Purpose / Reason <span class="text-danger">*</span></label>
+            <textarea name="reason" class="form-control" rows="2"
+                      placeholder="Briefly describe your event or purpose..." required></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-accent px-4" style="border-radius:8px">
+            <i class="bi bi-cart-plus me-2"></i>Add to Cart
+          </button>
+          <a href="{{ url_for('cart.view_cart') }}" class="btn btn-outline-secondary px-3 ms-2" style="border-radius:8px">
+            <i class="bi bi-cart3 me-1"></i>View Cart
+          </a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('cartDate').min = new Date().toISOString().split('T')[0];
+
+function calcPrice() {
+  const s = document.getElementById('cartStart').value;
+  const e = document.getElementById('cartEnd').value;
+  const d = document.getElementById('cartDate').value;
+  if (!s || !e || !d) return;
+  const start = new Date(`${d}T${s}`);
+  const end   = new Date(`${d}T${e}`);
+  const hours = (end - start) / 3600000;
+  if (hours <= 0) return;
+  const price   = hours * {{ facility.price_per_hour|float }};
+  const preview = document.getElementById('pricePreview');
+  preview.style.display = '';
+  document.getElementById('priceDisplay').textContent  = 'R' + price.toFixed(2);
+  document.getElementById('hoursDisplay').textContent  = hours.toFixed(1) + ' hour(s) × R{{ "%.2f"|format(facility.price_per_hour) }}/hr';
+}
+document.getElementById('cartStart').addEventListener('change', calcPrice);
+document.getElementById('cartEnd').addEventListener('change', calcPrice);
+</script>
+{% endif %}
+
+
+{% block extra_js %}
+<script>
+const starLabels = ['','Terrible','Poor','Average','Good','Excellent'];
+let selectedStar = {{ user_review.rating if user_review else 0 }};
+
+// Colour stars on init if editing
+window.addEventListener('DOMContentLoaded', () => {
+  if (selectedStar > 0) paintStars(selectedStar, '#e8a020');
+});
+
+function hoverStars(n) {
+  paintStars(n, '#e8a020');
+  document.getElementById('starLabel').textContent = starLabels[n];
+}
+function resetStars() {
+  if (selectedStar > 0) {
+    paintStars(selectedStar, '#e8a020');
+    document.getElementById('starLabel').textContent = starLabels[selectedStar];
+  } else {
+    paintStars(0, '#e2e8f0');
+    document.getElementById('starLabel').textContent = '';
+  }
+}
+function selectStar(n) {
+  selectedStar = n;
+  document.getElementById('rstar' + n).checked = true;
+  paintStars(n, '#e8a020');
+  document.getElementById('starLabel').textContent = starLabels[n];
+}
+function paintStars(n, colour) {
+  document.querySelectorAll('.star-label').forEach((el, i) => {
+    el.style.color = i < n ? colour : '#e2e8f0';
+  });
+}
+function toggleReviewForm() {
+  const form = document.getElementById('reviewForm');
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') {
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (selectedStar > 0) paintStars(selectedStar, '#e8a020');
+  }
+}
+</script>
+{% endblock %}
+{% endblock %}

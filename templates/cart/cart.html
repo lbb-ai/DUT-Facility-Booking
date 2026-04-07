@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% block title %}My Cart{% endblock %}
+{% block page_title %}Booking Cart{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cart-item { border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 18px; background: #fff; margin-bottom: 12px; transition: box-shadow .2s; }
+  .cart-item:hover { box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+  .price-tag { font-size: 1.15rem; font-weight: 800; color: #1a3a5c; font-family: 'JetBrains Mono', monospace; }
+  .cart-summary { background: linear-gradient(135deg,#1a3a5c,#2563a8); border-radius: 14px; padding: 24px; color: #fff; position: sticky; top: 74px; }
+  .summary-line { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,.15); font-size: .87rem; }
+  .summary-line:last-child { border-bottom: none; }
+  .summary-total { font-size: 1.3rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: #e8a020; }
+  .empty-cart { text-align: center; padding: 4rem 2rem; color: #94a3b8; }
+  .empty-cart i { font-size: 3.5rem; opacity: .25; display: block; margin-bottom: 1rem; }
+  .time-pill { background: #f0f4f8; border-radius: 6px; padding: 3px 10px; font-size: .75rem; font-family: 'JetBrains Mono', monospace; color: #475569; display: inline-block; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- Cart items -->
+  <div class="col-lg-8">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="small text-muted">
+        <i class="bi bi-cart3 me-1"></i>
+        <strong>{{ items|length }}</strong> item{{ 's' if items|length != 1 }}
+      </div>
+      {% if items %}
+      <form method="POST" action="{{ url_for('cart.clear_cart') }}"
+            onsubmit="return confirm('Clear all items?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-sm btn-outline-danger" style="border-radius:8px;font-size:.78rem">
+          <i class="bi bi-trash me-1"></i>Clear Cart
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if items %}
+      {% for item in items %}
+      <div class="cart-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div style="flex:1;min-width:0">
+            <div class="fw-700 mb-1" style="color:#1a3a5c">{{ item.title }}</div>
+
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <span class="campus-badge" style="background:#e8f0fe;color:#1a3a5c;border-radius:100px;padding:2px 10px;font-size:.7rem;font-weight:700">
+                <i class="bi bi-building me-1"></i>{{ item.facility_name }}
+              </span>
+              {% if item.facility_campus %}
+              <span style="background:#f0f4f8;color:#475569;border-radius:100px;padding:2px 10px;font-size:.7rem;font-weight:600">
+                <i class="bi bi-geo-alt me-1"></i>{{ item.facility_campus }}
+              </span>
+              {% endif %}
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <span class="time-pill"><i class="bi bi-calendar3 me-1"></i>{{ item.booking_date }}</span>
+              <span class="time-pill"><i class="bi bi-clock me-1"></i>{{ item.start_time }} – {{ item.end_time }}</span>
+              <span class="time-pill"><i class="bi bi-hourglass me-1"></i>{{ item.hours }}h</span>
+              <span class="time-pill"><i class="bi bi-people me-1"></i>{{ item.attendees }} attendee{{ 's' if item.attendees != 1 }}</span>
+            </div>
+
+            <div class="small text-muted" style="font-size:.78rem">{{ item.reason }}</div>
+          </div>
+
+          <div class="text-end flex-shrink-0">
+            <div class="price-tag">R{{ "%.2f"|format(item.price) }}</div>
+            <div class="text-muted" style="font-size:.68rem">R{{ "%.2f"|format(item.price_per_hour) }}/hr</div>
+            <form method="POST" action="{{ url_for('cart.remove_from_cart', index=loop.index0) }}"
+                  class="mt-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-danger" style="border-radius:8px;font-size:.72rem">
+                <i class="bi bi-trash"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Add more -->
+      <a href="{{ url_for('facilities.list_facilities') }}"
+         class="btn btn-outline-primary btn-sm mt-2" style="border-radius:8px">
+        <i class="bi bi-plus me-1"></i>Add More Facilities
+      </a>
+
+    {% else %}
+    <div class="card empty-cart">
+      <i class="bi bi-cart-x"></i>
+      <div class="fw-700 mb-1" style="color:#475569">Your cart is empty</div>
+      <div class="small mb-3">Browse facilities and add them to your cart.</div>
+      <a href="{{ url_for('facilities.list_facilities') }}"
+         class="btn btn-accent" style="border-radius:8px">
+        <i class="bi bi-building me-2"></i>Browse Facilities
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Order summary -->
+  {% if items %}
+  <div class="col-lg-4">
+    <div class="cart-summary">
+      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.5);font-weight:700;margin-bottom:12px">Order Summary</div>
+
+      {% for item in items %}
+      <div class="summary-line">
+        <span style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;opacity:.8;font-size:.8rem">
+          {{ item.facility_name }}
+        </span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:.82rem">R{{ "%.2f"|format(item.price) }}</span>
+      </div>
+      {% endfor %}
+
+      <div class="summary-line mt-2">
+        <span style="font-weight:700">Total (ZAR)</span>
+        <span class="summary-total">R{{ "%.2f"|format(total) }}</span>
+      </div>
+
+      <div class="mt-3 p-2 rounded" style="background:rgba(255,255,255,.08);font-size:.73rem;color:rgba(255,255,255,.7)">
+        <i class="bi bi-shield-lock me-1"></i>Payment processed securely via PayFast
+      </div>
+
+      <form method="POST" action="{{ url_for('payments.checkout') }}" class="mt-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn w-100 fw-700"
+                style="background:#e8a020;color:#1a3a5c;border-radius:10px;padding:.75rem;font-size:.95rem">
+          <i class="bi bi-credit-card me-2"></i>Proceed to Payment
+        </button>
+      </form>
+
+      <div class="mt-2 text-center" style="font-size:.72rem;color:rgba(255,255,255,.4)">
+        You will be redirected to PayFast to complete payment
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

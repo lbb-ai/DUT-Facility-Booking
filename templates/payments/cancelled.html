@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}Payment Cancelled{% endblock %}
+{% block page_title %}Payment Cancelled{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6 text-center">
+    <div style="width:80px;height:80px;background:#fef3c7;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.25rem;font-size:2.2rem">⚠️</div>
+    <h2 style="color:#92400e;font-weight:700;font-size:1.2rem">Payment Cancelled</h2>
+    <p class="text-muted mb-1" style="font-size:.88rem">
+      You cancelled the payment — no charge was made to your account.
+    </p>
+    {% if order %}
+    <p class="text-muted" style="font-size:.78rem">
+      Reference: <span style="font-family:'JetBrains Mono',monospace">{{ order.reference }}</span>
+    </p>
+    {% endif %}
+    <div class="card p-3 mt-3 mb-4" style="background:#fef3c7;border-color:#fcd34d;border-radius:12px">
+      <div class="small" style="color:#78350f">
+        <i class="bi bi-info-circle me-1"></i>
+        Your cart items are still saved. You can go back and try again.
+      </div>
+    </div>
+    <div class="d-flex gap-2 justify-content-center">
+      <a href="{{ url_for('cart.view_cart') }}" class="btn btn-accent px-4" style="border-radius:8px">
+        <i class="bi bi-cart3 me-2"></i>Back to Cart
+      </a>
+      <a href="{{ url_for('facilities.list_facilities') }}" class="btn btn-outline-secondary px-4" style="border-radius:8px">
+        Browse Facilities
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

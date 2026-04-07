@@ -1,0 +1,304 @@
+{% extends 'base.html' %}
+{% block title %}Facilities{% endblock %}
+{% block page_title %}Facilities{% endblock %}
+
+{% block extra_css %}
+<style>
+  .facility-card {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    transition: box-shadow .2s, transform .15s;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .facility-card:hover {
+    box-shadow: 0 8px 32px rgba(26,58,92,.12);
+    transform: translateY(-2px);
+  }
+  .facility-img {
+    width: 100%; height: 170px; object-fit: cover;
+    background: linear-gradient(135deg,#e8f0fe,#f0f4ff);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .facility-img img { width: 100%; height: 170px; object-fit: cover; }
+  .facility-img .img-placeholder {
+    font-size: 2.5rem; opacity: .25;
+  }
+  .facility-body { padding: 14px 16px; flex: 1; display: flex; flex-direction: column; }
+  .campus-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #f0f4f8; color: #475569;
+    font-size: .65rem; padding: 3px 8px; border-radius: 100px;
+    font-weight: 600; margin-bottom: 6px;
+  }
+  .filter-pill {
+    border-radius: 100px; font-size: .78rem; padding: 5px 14px;
+    border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+    cursor: pointer; transition: all .15s; font-weight: 600; text-decoration: none;
+    display: inline-block;
+  }
+  .filter-pill:hover { border-color: #2563a8; color: #2563a8; }
+  .filter-pill.active { background: #1a3a5c; border-color: #1a3a5c; color: #fff; }
+  .filter-section { border-bottom: 1px solid #f1f5f9; padding-bottom: 14px; margin-bottom: 16px; }
+  .filter-label { font-size: .62rem; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; font-weight: 700; margin-bottom: 6px; }
+  .pagination .page-link {
+    border-radius: 8px !important; margin: 0 2px;
+    border: 1.5px solid #e2e8f0; color: #475569;
+    font-size: .82rem; padding: 6px 12px;
+  }
+  .pagination .page-item.active .page-link { background: #1a3a5c; border-color: #1a3a5c; color: #fff; }
+  .pagination .page-item.disabled .page-link { opacity: .45; }
+  .pagination .page-link:hover:not(.active) { border-color: #2563a8; color: #2563a8; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Filter bar ─────────────────────────────────────────── -->
+<div class="card mb-4 p-3">
+
+  <!-- Type filter -->
+  <div class="filter-section">
+    <div class="filter-label">Facility Type</div>
+    <div class="d-flex flex-wrap gap-2">
+      {% for t, label in [('all','All Types'), ('lab','Labs'), ('hall','Halls'), ('sports','Sports'), ('lecture_room','Lecture Rooms')] %}
+      <a href="{{ url_for('facilities.list_facilities', type=t, campus=campus_filter) }}"
+         class="filter-pill {% if type_filter == t %}active{% endif %}">
+        <i class="bi bi-{% if t == 'all' %}grid{% elif t == 'lab' %}pc-display{% elif t == 'hall' %}people{% elif t == 'sports' %}trophy{% else %}easel{% endif %} me-1"></i>
+        {{ label }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Campus filter -->
+  <div class="mb-0">
+    <div class="filter-label">DUT Campus</div>
+    <div class="d-flex flex-wrap gap-2">
+      <a href="{{ url_for('facilities.list_facilities', type=type_filter, campus='all') }}"
+         class="filter-pill {% if campus_filter == 'all' %}active{% endif %}">
+        <i class="bi bi-geo me-1"></i>All Campuses
+      </a>
+      {% for c in campuses %}
+      <a href="{{ url_for('facilities.list_facilities', type=type_filter, campus=c) }}"
+         class="filter-pill {% if campus_filter == c %}active{% endif %}">
+        {{ c }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Results header ──────────────────────────────────────── -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div class="small text-muted">
+    Showing <strong>{{ pagination.total }}</strong> facilit{{ 'y' if pagination.total == 1 else 'ies' }}
+    {% if campus_filter != 'all' %} at <strong>{{ campus_filter }}</strong>{% endif %}
+    {% if type_filter != 'all' %} · <strong>{{ type_filter|replace('_',' ')|title }}</strong>{% endif %}
+    &nbsp;·&nbsp; Page {{ pagination.page }} of {{ pagination.pages or 1 }}
+  </div>
+  {% if current_user.is_authenticated and current_user.is_admin() %}
+  <a href="{{ url_for('facilities.add_facility') }}" class="btn btn-accent btn-sm" style="border-radius:8px">
+    <i class="bi bi-plus me-1"></i>Add Facility
+  </a>
+  {% endif %}
+</div>
+
+<!-- ── Cards grid ─────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+  {% for f in facilities %}
+  <div class="col-md-6 col-xl-4">
+    <div class="facility-card bg-white">
+
+      <!-- Photo / placeholder -->
+      <div class="facility-img">
+        {% if f.image_url %}
+        <img src="{{ f.image_url }}" alt="{{ f.name }}" loading="lazy">
+        {% else %}
+        <div class="img-placeholder text-center py-3">
+          <i class="bi bi-{% if f.facility_type == 'lab' %}pc-display{% elif f.facility_type == 'hall' %}people-fill{% elif f.facility_type == 'sports' %}trophy-fill{% else %}easel-fill{% endif %}"></i>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="facility-body">
+
+        <!-- Type + campus badges -->
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <span class="badge rounded-pill px-2 py-1"
+                style="font-size:.65rem;
+                  {% if f.facility_type == 'lab' %}background:#e8f0fe;color:#1a3a5c
+                  {% elif f.facility_type == 'hall' %}background:#fef3c7;color:#92400e
+                  {% elif f.facility_type == 'sports' %}background:#d1fae5;color:#065f46
+                  {% else %}background:#fde8e8;color:#9b1c1c{% endif %}">
+            {{ f.facility_type|replace('_',' ')|title }}
+          </span>
+          <!-- Star rating -->
+          {% if f.avg_rating %}
+          <span style="color:#e8a020;font-size:.78rem">
+            {{ '★' * f.avg_rating|int }}{{ '☆' * (5 - f.avg_rating|int) }}
+            <span class="text-muted ms-1" style="font-size:.68rem">({{ f.rating_count }})</span>
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- Campus badge -->
+        {% if f.campus %}
+        <div class="campus-badge">
+          <i class="bi bi-geo-alt-fill" style="font-size:.6rem"></i>
+          {{ f.campus }}
+        </div>
+        {% endif %}
+
+        <h6 class="fw-700 mb-1" style="color:#1a3a5c;font-size:.92rem">{{ f.name }}</h6>
+        <div class="small text-muted mb-2" style="font-size:.78rem">
+          {{ f.location }}
+        </div>
+
+        {% if f.description %}
+        <p class="small text-muted mb-2" style="font-size:.78rem;line-height:1.5;flex:1">
+          {{ f.description[:90] }}{% if f.description|length > 90 %}…{% endif %}
+        </p>
+        {% else %}
+        <div style="flex:1"></div>
+        {% endif %}
+
+        <!-- Capacity + equipment tags -->
+        <div class="small mb-2">
+          <i class="bi bi-people me-1 text-muted"></i>
+          <span class="fw-600">{{ f.capacity }}</span>
+          <span class="text-muted"> capacity</span>
+        </div>
+
+        {% if f.equipment_list %}
+        <div class="mb-3">
+          {% for eq in f.equipment_list[:3] %}
+          <span class="badge bg-light text-secondary me-1 mb-1"
+                style="font-size:.65rem;border:1px solid #e2e8f0">{{ eq }}</span>
+          {% endfor %}
+          {% if f.equipment_list|length > 3 %}
+          <span class="badge bg-light text-muted"
+                style="font-size:.65rem;border:1px solid #e2e8f0">+{{ f.equipment_list|length - 3 }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Unavailable overlay -->
+        {% if not f.is_available %}
+        <div class="mb-2 small" style="color:#dc3545;font-weight:600;font-size:.75rem">
+          <i class="bi bi-slash-circle me-1"></i>Currently Unavailable
+        </div>
+        {% endif %}
+
+        <!-- Price tag for external-enabled facilities -->
+        {% if f.allow_external and f.price_per_hour %}
+        <div class="mb-2 small">
+          <span style="background:#fef3c7;color:#92400e;border-radius:100px;padding:2px 10px;font-size:.7rem;font-weight:700">
+            <i class="bi bi-cash me-1"></i>R{{ "%.2f"|format(f.price_per_hour) }}/hr · External booking available
+          </span>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="d-flex gap-2 flex-wrap mt-auto">
+          <a href="{{ url_for('facilities.facility_detail', facility_id=f.id) }}"
+             class="btn btn-outline-primary btn-sm" style="border-radius:8px;font-size:.75rem">
+            <i class="bi bi-eye me-1"></i>View
+          </a>
+          {% if f.is_available %}
+            {% if current_user.is_authenticated and current_user.is_external() %}
+              {% if f.allow_external %}
+              <a href="{{ url_for('facilities.facility_detail', facility_id=f.id) }}#book"
+                 class="btn btn-accent btn-sm flex-grow-1" style="border-radius:8px;font-size:.75rem">
+                <i class="bi bi-cart-plus me-1"></i>Add to Cart
+              </a>
+              {% endif %}
+            {% elif current_user.is_authenticated %}
+              <a href="{{ url_for('bookings.create_booking') }}"
+                 class="btn btn-accent btn-sm flex-grow-1" style="border-radius:8px;font-size:.75rem">
+                <i class="bi bi-plus me-1"></i>Book
+              </a>
+            {% else %}
+              <a href="{{ url_for('auth.login') }}"
+                 class="btn btn-outline-secondary btn-sm flex-grow-1" style="border-radius:8px;font-size:.75rem">
+                <i class="bi bi-box-arrow-in-right me-1"></i>Login to Book
+              </a>
+            {% endif %}
+          {% endif %}
+          {% if current_user.is_authenticated and current_user.is_admin() %}
+          <a href="{{ url_for('facilities.edit_facility', facility_id=f.id) }}"
+             class="btn btn-outline-secondary btn-sm" style="border-radius:8px;font-size:.75rem">
+            <i class="bi bi-pencil"></i>
+          </a>
+          <form method="POST" action="{{ url_for('facilities.delete_facility', facility_id=f.id) }}"
+                onsubmit="return confirm('Delete {{ f.name }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger btn-sm"
+                    style="border-radius:8px;font-size:.75rem">
+              <i class="bi bi-trash"></i>
+            </button>
+          </form>
+          {% endif %}
+        </div>
+
+      </div><!-- /.facility-body -->
+    </div><!-- /.facility-card -->
+  </div>
+
+  {% else %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-body text-center py-5 text-muted">
+        <i class="bi bi-building d-block mb-2" style="font-size:2.5rem;opacity:.25"></i>
+        <div class="fw-600 mb-1">No facilities found</div>
+        <div class="small">Try adjusting the filters above.</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Pagination ──────────────────────────────────────────── -->
+{% if pagination.pages > 1 %}
+<nav class="d-flex justify-content-center">
+  <ul class="pagination mb-0">
+
+    <!-- Previous -->
+    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+      <a class="page-link"
+         href="{{ url_for('facilities.list_facilities', page=pagination.prev_num, type=type_filter, campus=campus_filter) if pagination.has_prev else '#' }}">
+        <i class="bi bi-chevron-left" style="font-size:.75rem"></i>
+      </a>
+    </li>
+
+    <!-- Page numbers -->
+    {% for p in pagination.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+      {% if p %}
+      <li class="page-item {% if p == pagination.page %}active{% endif %}">
+        <a class="page-link"
+           href="{{ url_for('facilities.list_facilities', page=p, type=type_filter, campus=campus_filter) }}">
+          {{ p }}
+        </a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">…</span></li>
+      {% endif %}
+    {% endfor %}
+
+    <!-- Next -->
+    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+      <a class="page-link"
+         href="{{ url_for('facilities.list_facilities', page=pagination.next_num, type=type_filter, campus=campus_filter) if pagination.has_next else '#' }}">
+        <i class="bi bi-chevron-right" style="font-size:.75rem"></i>
+      </a>
+    </li>
+
+  </ul>
+</nav>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}Calendar{% endblock %}
+{% block page_title %}Booking Calendar{% endblock %}
+
+{% block extra_css %}
+<style>
+  #eventPopup {
+    position: fixed; z-index: 9999;
+    background: #fff; border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    padding: 1rem 1.25rem; min-width: 240px;
+    border: 1px solid #e2e8f0; display: none;
+  }
+  #eventPopup .popup-title  { font-weight:700; font-size:.9rem; color:#1a3a5c; margin-bottom:.35rem; }
+  #eventPopup .popup-row    { font-size:.78rem; color:#64748b; margin-bottom:.2rem; }
+  #eventPopup .popup-close  {
+    position:absolute; top:8px; right:10px;
+    background:none; border:none; font-size:1.1rem; color:#94a3b8; cursor:pointer;
+  }
+  .fc .fc-toolbar-title   { font-size: 1rem !important; font-weight: 700; color: #1a3a5c; }
+  .fc .fc-button           { font-size: .78rem !important; }
+  .fc .fc-button-primary   { background: #1a3a5c !important; border-color: #1a3a5c !important; }
+  .fc .fc-button-primary:hover { background: #2563a8 !important; }
+  .fc-event                { cursor: pointer; border-radius: 4px !important; font-size: .75rem !important; }
+  .fc-daygrid-event-dot    { display: none; }
+  .legend-dot { width:12px;height:12px;border-radius:3px;display:inline-block;margin-right:5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- Sidebar: filter + legend -->
+  <div class="col-lg-3">
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-funnel me-2"></i>Filter</div>
+      <div class="card-body p-3">
+        <label class="form-label small fw-600">Facility</label>
+        <select id="facilityFilter" class="form-control form-control-sm">
+          <option value="">All Facilities</option>
+          {% for f in facilities %}
+          <option value="{{ f.id }}">{{ f.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-header"><i class="bi bi-palette me-2"></i>Legend</div>
+      <div class="card-body p-3">
+        {% for colour, label in [('#2563a8','Lab'), ('#e8a020','Hall'), ('#28a745','Sports'), ('#dc3545','Lecture Room')] %}
+        <div class="d-flex align-items-center mb-2 small">
+          <span class="legend-dot" style="background:{{ colour }}"></span>{{ label }}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <a href="{{ url_for('bookings.create_booking') }}"
+       class="btn btn-accent d-grid" style="border-radius:8px">
+      <i class="bi bi-plus me-2"></i>New Booking
+    </a>
+  </div>
+
+  <!-- Calendar -->
+  <div class="col-lg-9">
+    <div class="card">
+      <div class="card-body p-3">
+        <div id="calendar"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Event popup -->
+<div id="eventPopup">
+  <button class="popup-close" onclick="closePopup()">✕</button>
+  <div class="popup-title" id="popupTitle"></div>
+  <div class="popup-row"><i class="bi bi-building me-1"></i><span id="popupFacility"></span></div>
+  <div class="popup-row"><i class="bi bi-clock me-1"></i><span id="popupTime"></span></div>
+  <div class="popup-row"><i class="bi bi-people me-1"></i><span id="popupAttendees"></span> attendees</div>
+  <div class="popup-row"><i class="bi bi-person me-1"></i><span id="popupUser"></span></div>
+  <div class="mt-2">
+    <a id="popupLink" href="#" class="btn btn-sm btn-outline-primary w-100" style="border-radius:6px;font-size:.75rem">
+      View Booking
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script>
+  let calendar;
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const calEl = document.getElementById('calendar');
+    calendar = new FullCalendar.Calendar(calEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left:   'prev,next today',
+        center: 'title',
+        right:  'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+      },
+      height: 'auto',
+      nowIndicator: true,
+      eventSources: [{ url: '/api/calendar-events', method: 'GET', extraParams: getFilters }],
+      eventClick: function (info) { showPopup(info); },
+      eventMouseLeave: function () {},
+    });
+    calendar.render();
+
+    document.getElementById('facilityFilter').addEventListener('change', function () {
+      calendar.refetchEvents();
+    });
+  });
+
+  function getFilters() {
+    const fid = document.getElementById('facilityFilter').value;
+    return fid ? { facility_id: fid } : {};
+  }
+
+  function showPopup(info) {
+    const p = info.event.extendedProps;
+    const start = info.event.start;
+    const end   = info.event.end;
+    document.getElementById('popupTitle').textContent    = info.event.title;
+    document.getElementById('popupFacility').textContent = p.facility;
+    document.getElementById('popupTime').textContent     =
+      start.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) + ' – ' +
+      (end ? end.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '');
+    document.getElementById('popupAttendees').textContent = p.attendees;
+    document.getElementById('popupUser').textContent      = p.bookedBy;
+    document.getElementById('popupLink').href = `/bookings/${p.bookingId}`;
+
+    const popup = document.getElementById('eventPopup');
+    popup.style.display = 'block';
+    // Position near click, keep in viewport
+    let x = info.jsEvent.clientX + 12;
+    let y = info.jsEvent.clientY - 10;
+    if (x + 260 > window.innerWidth)  x = info.jsEvent.clientX - 270;
+    if (y + 200 > window.innerHeight) y = window.innerHeight - 210;
+    popup.style.left = x + 'px';
+    popup.style.top  = y + 'px';
+  }
+
+  function closePopup() {
+    document.getElementById('eventPopup').style.display = 'none';
+  }
+
+  document.addEventListener('click', function (e) {
+    const popup = document.getElementById('eventPopup');
+    if (!popup.contains(e.target) && !e.target.closest('.fc-event')) {
+      closePopup();
+    }
+  });
+</script>
+{% endblock %}

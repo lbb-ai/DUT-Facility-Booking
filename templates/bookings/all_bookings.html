@@ -1,0 +1,236 @@
+{% extends 'base.html' %}
+{% block title %}All Bookings{% endblock %}
+{% block page_title %}All Bookings{% endblock %}
+
+{% block extra_css %}
+<style>
+  .filter-pill {
+    border-radius: 100px; font-size: .75rem; padding: 4px 12px;
+    border: 1.5px solid #e2e8f0; background: #fff; color: #475569;
+    cursor: pointer; transition: all .15s; font-weight: 600;
+    text-decoration: none; display: inline-block;
+  }
+  .filter-pill:hover  { border-color: #1a3a5c; color: #1a3a5c; }
+  .filter-pill.active { background: #1a3a5c; border-color: #1a3a5c; color: #fff; }
+  .filter-pill.f-approved  { }
+  .filter-pill.f-approved.active  { background:#065f46; border-color:#065f46; }
+  .filter-pill.f-pending.active   { background:#92400e; border-color:#92400e; }
+  .filter-pill.f-rejected.active  { background:#9b1c1c; border-color:#9b1c1c; }
+  .filter-pill.f-paid.active      { background:#5b21b6; border-color:#5b21b6; }
+  .filter-pill.f-cancelled.active { background:#374151; border-color:#374151; }
+
+  .conflict-row td { background: #fff5f5 !important; }
+  .conflict-badge {
+    display:inline-flex; align-items:center; gap:3px;
+    background:#fde8e8; color:#9b1c1c;
+    font-size:.62rem; padding:2px 7px; border-radius:100px; font-weight:700;
+  }
+  .user-type-ext {
+    display:inline-block; background:#fef3c7; color:#92400e;
+    font-size:.6rem; padding:1px 6px; border-radius:4px; font-weight:700;
+    vertical-align:middle; margin-left:4px;
+  }
+  .user-type-internal {
+    display:none;
+  }
+  .stat-bar { display:flex; gap:2px; margin-bottom:1rem; flex-wrap:wrap; }
+  .stat-bar-item { flex:1; min-width:64px; background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; text-align:center; }
+  .stat-bar-item .v { font-size:1.2rem; font-weight:800; font-family:'JetBrains Mono',monospace; line-height:1; }
+  .stat-bar-item .l { font-size:.58rem; text-transform:uppercase; letter-spacing:.08em; color:#94a3b8; font-weight:700; margin-top:2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Stats bar ───────────────────────────────────────────── -->
+{% set counts = {} %}
+<div class="stat-bar">
+  {% for status, colour in [('approved','#22c55e'),('pending','#f59e0b'),('paid','#8b5cf6'),('rejected','#ef4444'),('cancelled','#94a3b8'),('draft','#38bdf8')] %}
+  {% set cnt = bookings | selectattr('status','eq',status) | list | length %}
+  <div class="stat-bar-item">
+    <div class="v" style="color:{{ colour }}">{{ cnt }}</div>
+    <div class="l">{{ status }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- ── Filter + action bar ────────────────────────────────── -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="d-flex flex-wrap gap-1">
+    <a href="#" class="filter-pill active"            onclick="return filterRows('all',this)">All ({{ bookings|length }})</a>
+    <a href="#" class="filter-pill f-approved"        onclick="return filterRows('approved',this)">Approved</a>
+    <a href="#" class="filter-pill f-pending"         onclick="return filterRows('pending',this)">Pending</a>
+    <a href="#" class="filter-pill f-paid"            onclick="return filterRows('paid',this)">Paid (External)</a>
+    <a href="#" class="filter-pill f-rejected"        onclick="return filterRows('rejected',this)">Rejected</a>
+    <a href="#" class="filter-pill f-cancelled"       onclick="return filterRows('cancelled',this)">Cancelled</a>
+  </div>
+  <a href="{{ url_for('admin.manage_requests') }}?status=pending"
+     class="btn btn-accent btn-sm" style="border-radius:8px">
+    <i class="bi bi-hourglass me-1"></i>Review Pending
+  </a>
+</div>
+
+<!-- ── Conflict legend ────────────────────────────────────── -->
+{% set conflict_count = namespace(n=0) %}
+{% for b in bookings %}
+  {% for b2 in bookings %}
+    {% if b.id != b2.id and b.facility_id == b2.facility_id
+          and b.booking_date == b2.booking_date
+          and b.status in ['approved','paid'] and b2.status in ['approved','paid']
+          and b.start_time < b2.end_time and b.end_time > b2.start_time %}
+      {% set conflict_count.n = conflict_count.n + 1 %}
+    {% endif %}
+  {% endfor %}
+{% endfor %}
+{% if conflict_count.n > 0 %}
+<div class="alert alert-danger py-2 px-3 mb-3 d-flex align-items-center gap-2" style="border-radius:8px;font-size:.82rem">
+  <i class="bi bi-exclamation-triangle-fill"></i>
+  <strong>{{ (conflict_count.n // 2) }} conflicting booking pair(s) detected</strong> — highlighted in red below. Review and cancel duplicates.
+</div>
+{% endif %}
+
+<!-- ── Table ──────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="bookingsTable">
+        <thead class="table-light">
+          <tr>
+            <th class="small ps-3">#</th>
+            <th class="small">Title</th>
+            <th class="small">User</th>
+            <th class="small">Facility</th>
+            <th class="small">Date</th>
+            <th class="small">Time</th>
+            <th class="small">Ppl</th>
+            <th class="small">Status</th>
+            <th class="small pe-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for b in bookings %}
+
+        {# Detect conflict with any other active booking #}
+        {% set has_conflict = namespace(v=false) %}
+        {% for b2 in bookings %}
+          {% if b.id != b2.id
+                and b.facility_id == b2.facility_id
+                and b.booking_date == b2.booking_date
+                and b.status in ['approved','paid']
+                and b2.status in ['approved','paid']
+                and b.start_time < b2.end_time
+                and b.end_time > b2.start_time %}
+            {% set has_conflict.v = true %}
+          {% endif %}
+        {% endfor %}
+
+        <tr class="booking-row {% if has_conflict.v %}conflict-row{% endif %}"
+            data-status="{{ b.status }}">
+          <td class="small text-muted ps-3">
+            #{{ b.id }}
+            {% if has_conflict.v %}
+            <span class="conflict-badge ms-1"><i class="bi bi-exclamation-triangle-fill"></i> Conflict</span>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="small fw-600" style="color:#1a3a5c">{{ b.title }}</div>
+            {% if b.is_recurring %}
+            <div style="font-size:.65rem;color:#e8a020">
+              <i class="bi bi-arrow-repeat me-1"></i>Recurring
+            </div>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="small fw-600">{{ b.user.full_name }}</div>
+            <div style="font-size:.68rem;color:#94a3b8;font-family:'JetBrains Mono',monospace">
+              {{ b.user.student_number or b.user.email[:20] }}
+              {% if b.user.is_external() %}
+              <span class="user-type-ext">EXT</span>
+              {% endif %}
+            </div>
+            {% if b.user.organisation %}
+            <div style="font-size:.65rem;color:#94a3b8">{{ b.user.organisation }}</div>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="small">{{ b.facility.name }}</div>
+            {% if b.facility.campus %}
+            <div style="font-size:.65rem;color:#94a3b8">{{ b.facility.campus }}</div>
+            {% endif %}
+          </td>
+
+          <td class="small text-muted">{{ b.booking_date.strftime('%d %b %Y') }}</td>
+
+          <td class="small" style="font-family:'JetBrains Mono',monospace;white-space:nowrap">
+            {{ b.start_time.strftime('%H:%M') }}–{{ b.end_time.strftime('%H:%M') }}
+          </td>
+
+          <td class="small text-muted">{{ b.attendees }}</td>
+
+          <td>
+            <span class="badge rounded-pill px-2 py-1" style="font-size:.68rem;
+              {% if b.status == 'approved'  %}background:#d1fae5;color:#065f46
+              {% elif b.status == 'pending'  %}background:#fef3c7;color:#92400e
+              {% elif b.status == 'rejected' %}background:#fde8e8;color:#9b1c1c
+              {% elif b.status == 'paid'     %}background:#ede9fe;color:#5b21b6
+              {% elif b.status == 'draft'    %}background:#e0f2fe;color:#075985
+              {% else %}background:#f3f4f6;color:#374151{% endif %}">
+              {% if b.status == 'paid' %}💳 Paid{% else %}{{ b.status|title }}{% endif %}
+            </span>
+            {% if b.amount_paid %}
+            <div style="font-size:.65rem;color:#8b5cf6;font-family:'JetBrains Mono',monospace;margin-top:2px">
+              R{{ "%.2f"|format(b.amount_paid) }}
+            </div>
+            {% endif %}
+          </td>
+
+          <td class="pe-3">
+            <a href="{{ url_for('bookings.booking_detail', booking_id=b.id) }}"
+               class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;border-radius:6px">
+              <i class="bi bi-eye me-1"></i>View
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" class="text-center text-muted py-5">
+            <i class="bi bi-calendar3 d-block mb-2" style="font-size:2rem;opacity:.3"></i>
+            No bookings in the system yet.
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Empty after filter -->
+<div id="noFilterResults" class="text-center text-muted py-4 d-none" style="font-size:.85rem">
+  <i class="bi bi-filter d-block mb-1" style="font-size:1.5rem;opacity:.3"></i>
+  No bookings match this filter.
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function filterRows(status, btn) {
+  document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+
+  const rows = document.querySelectorAll('.booking-row');
+  let visible = 0;
+  rows.forEach(r => {
+    const show = status === 'all' || r.dataset.status === status;
+    r.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  document.getElementById('noFilterResults').classList.toggle('d-none', visible > 0);
+  return false;
+}
+</script>
+{% endblock %}
